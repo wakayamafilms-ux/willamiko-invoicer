@@ -326,7 +326,7 @@ function App() {
       formData.append("logo", logo);
     }
 
-    const res = await fetch("http://localhost:3001/host-invoice-pdf", {
+    const res = await fetch("https://willamiko-invoicer.onrender.com/host-invoice-pdf", {
       method: "POST",
       body: formData,
     });
@@ -414,7 +414,7 @@ formData.append("to", extractedEmail);
         formData.append("attachments", file);
       });
   
-      const res = await fetch("http://localhost:3001/send-email", {
+      const res = await fetch("https://willamiko-invoicer.onrender.com/send-email", {
         method: "POST",
         body: formData,
       });

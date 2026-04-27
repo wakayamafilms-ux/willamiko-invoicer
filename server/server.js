@@ -74,7 +74,7 @@ app.post("/host-invoice-pdf", upload.single("invoicePdf"), async (req, res) => {
     fs.writeFileSync(filepath, req.file.buffer);
 
     res.send({
-      url: `http://localhost:3001/invoices/${filename}`,
+      url: `https://willamiko-invoicer.onrender.com/invoices/${filename}`,
     });
   } catch (err) {
     console.error("Host PDF error:", err);
@@ -92,6 +92,8 @@ app.post(
   async (req, res) => {
     try {
       const { to, cc, from, subject, clientName, total, notes, hostedPdfUrl } = req.body;
+
+      console.log("HOSTED PDF URL:", hostedPdfUrl);
 
       if (!to) {
         return res.status(400).send("Missing recipient email address.");
