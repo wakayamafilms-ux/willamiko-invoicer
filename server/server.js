@@ -64,6 +64,8 @@ app.post("/generate-pdf", (req, res) => {
 // HOST INVOICE PDF
 app.post("/host-invoice-pdf", upload.single("invoicePdf"), async (req, res) => {
   try {
+    console.log("[host-invoice-pdf] request received");
+
     if (!req.file) {
       return res.status(400).send("No PDF uploaded");
     }
@@ -72,9 +74,14 @@ app.post("/host-invoice-pdf", upload.single("invoicePdf"), async (req, res) => {
     const filepath = path.join(invoicesDir, filename);
 
     fs.writeFileSync(filepath, req.file.buffer);
+    console.log(`[host-invoice-pdf] saved ${filename} (${req.file.size} bytes)`);
+
+    const baseUrl =
+      process.env.PUBLIC_BASE_URL ||
+      `${req.protocol}://${req.get("host")}`;
 
     res.send({
-      url: `https://willamiko-invoicer.onrender.com/invoices/${filename}`,
+      url: `${baseUrl}/invoices/${filename}`,
     });
   } catch (err) {
     console.error("Host PDF error:", err);
@@ -93,7 +100,14 @@ app.post(
     try {
       const { to, cc, from, subject, clientName, total, notes, hostedPdfUrl } = req.body;
 
-      console.log("HOSTED PDF URL:", hostedPdfUrl);
+      console.log("[send-email] request received", {
+        to,
+        cc: Boolean(cc),
+        subject,
+        hostedPdfUrl,
+        invoicePdfBytes: req.files?.invoicePdf?.[0]?.size || 0,
+        attachmentCount: req.files?.attachments?.length || 0,
+      });
 
       if (!to) {
         return res.status(400).send("Missing recipient email address.");
@@ -127,11 +141,16 @@ app.post(
 
       const transporter = nodemailer.createTransport({
         service: "gmail",
+        connectionTimeout: 20000,
+        greetingTimeout: 20000,
+        socketTimeout: 30000,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS,
         },
       });
+
+      console.log("[send-email] sending via Gmail SMTP");
 
       await transporter.sendMail({
         from: `"WILLAMIKO .LLC" <${process.env.EMAIL_USER}>`,
@@ -250,6 +269,7 @@ app.post(
         attachments: files,
       });
 
+      console.log("[send-email] sent successfully");
       res.send({ success: true });
     } catch (err) {
       console.error("Email send error:", err);
