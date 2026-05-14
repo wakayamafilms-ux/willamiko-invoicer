@@ -141,12 +141,16 @@ app.post(
       
       
 
+      const gmailIpv4Addresses = await dns.promises.resolve4("smtp.gmail.com");
+      const gmailSmtpHost = gmailIpv4Addresses[0] || "smtp.gmail.com";
+
+      console.log("[send-email] resolved Gmail SMTP host", gmailSmtpHost);
+
       const transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
+        host: gmailSmtpHost,
         port: 587,
         secure: false,
         requireTLS: true,
-        family: 4,
         connectionTimeout: 20000,
         greetingTimeout: 20000,
         socketTimeout: 30000,
