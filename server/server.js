@@ -6,8 +6,10 @@ const PDFDocument = require("pdfkit");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const dns = require("dns");
 
 dotenv.config();
+dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
