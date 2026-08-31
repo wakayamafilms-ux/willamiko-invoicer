@@ -3,19 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
- "scripts": {
-  "dev": "node server.js",
-  "start": "node server.js"
-},
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/genai": "^2.3.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.6",
-    "pdfkit": "^0.18.0"
+    "pdfkit": "^0.18.0",
+    "plaid": "^42.2.0"
   }
 }

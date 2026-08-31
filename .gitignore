@@ -89,6 +89,7 @@ web_modules/
 .env
 .env.*
 !.env.example
+server/plaid-items.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -165,4 +166,3 @@ vite.config.ts.timestamp-*
 .env
 server/.env
 server/node_modules
-
