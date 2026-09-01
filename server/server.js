@@ -7,6 +7,7 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const dns = require("dns").promises;
 const { Configuration, PlaidApi, PlaidEnvironments } = require("plaid");
 const { GoogleGenAI, Type } = require("@google/genai");
 const {
@@ -191,12 +192,17 @@ function requirePlaidConfig(res) {
   return true;
 }
 
-function createEmailTransporter() {
+async function createEmailTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error("Missing EMAIL_USER or EMAIL_PASS in the Render backend environment.");
   }
+  const smtpAddresses = await dns.resolve4("smtp.gmail.com");
+  if (!smtpAddresses.length) throw new Error("Could not resolve Gmail's IPv4 SMTP address.");
   return nodemailer.createTransport({
-    service: "gmail",
+    host: smtpAddresses[0],
+    port: 465,
+    secure: true,
+    tls: { servername: "smtp.gmail.com" },
     auth: {
       user: process.env.EMAIL_USER.trim(),
       pass: process.env.EMAIL_PASS.replace(/\s/g, ""),
@@ -289,7 +295,7 @@ app.post("/api/auth/change-password", async (req, res) => {
 
 app.get("/api/email/status", async (req, res) => {
   try {
-    const transporter = createEmailTransporter();
+    const transporter = await createEmailTransporter();
     await transporter.verify();
     res.send({ connected: true, sender: process.env.EMAIL_USER.trim() });
   } catch (error) {
@@ -807,7 +813,7 @@ app.post(
       
       
 
-      const transporter = createEmailTransporter();
+      const transporter = await createEmailTransporter();
 
       await transporter.sendMail({
         from: `"WILLAMIKO .LLC" <${process.env.EMAIL_USER}>`,
