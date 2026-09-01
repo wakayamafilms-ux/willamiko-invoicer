@@ -2295,6 +2295,109 @@ select:focus {
   white-space: nowrap;
 }
 
+.remote-capture-card {
+  position: relative;
+  width: min(390px, calc(100vw - 32px));
+  border: 1px solid #39362f;
+  padding: 30px;
+  background: #faf8f1;
+  text-align: center;
+}
+
+.remote-capture-card > span {
+  color: #087f8c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.remote-capture-card h2 {
+  margin: 6px 0;
+  color: #292721;
+  font-size: 17px;
+}
+
+.remote-capture-card p,
+.remote-capture-card small {
+  display: block;
+  color: #4f4b43;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.remote-capture-card img {
+  display: block;
+  width: min(260px, 100%);
+  margin: 18px auto 14px;
+  border: 1px solid #ded8ca;
+}
+
+.mobile-capture-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 20px;
+  background: #f1eee6;
+}
+
+.mobile-capture-card {
+  width: min(440px, 100%);
+  border: 1px solid #39362f;
+  padding: 30px 24px;
+  background: #faf8f1;
+  text-align: center;
+}
+
+.mobile-capture-card > span {
+  color: #087f8c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mobile-capture-card h1 {
+  margin: 8px 0;
+  color: #39362f;
+  font-family: "Bernhard Antiqua", "BernhardAntiqua", Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+}
+
+.mobile-capture-card p {
+  margin: 0 0 24px;
+  color: #4f4b43;
+  font-size: 12px;
+}
+
+.mobile-capture-button {
+  display: grid;
+  min-height: 50px;
+  place-items: center;
+  background: #087f8c;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mobile-capture-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.mobile-capture-status {
+  margin-top: 18px;
+  color: #39362f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .qb-main {
   overflow-x: hidden;
 }

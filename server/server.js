@@ -25,7 +25,10 @@ const {
 dotenv.config();
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+});
 
 app.use(cors());
 app.use(express.json());
@@ -92,6 +95,48 @@ async function storeReceipt(userId, file) {
   );
   if (!response.ok) throw new Error(`Receipt storage failed: ${await response.text()}`);
   return objectPath;
+}
+
+async function analyzeReceiptFile(file, userId) {
+  if (!file) throw new Error("Choose a receipt image or PDF.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Receipt must be under 10 MB.");
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.mimetype) && file.mimetype !== "application/pdf") {
+    throw new Error("Use a JPG, PNG, WEBP, HEIC, or PDF receipt.");
+  }
+  if (!gemini) throw new Error("Missing GEMINI_API_KEY in the server environment.");
+
+  const response = await gemini.models.generateContent({
+    model: process.env.GEMINI_RECEIPT_MODEL || "gemini-2.5-flash",
+    contents: [
+      { inlineData: { mimeType: file.mimetype, data: file.buffer.toString("base64") } },
+      { text: `Extract this business receipt. Use YYYY-MM-DD for date. Choose category only from: ${ACCOUNTING_CATEGORIES.join(", ")}. Use the final charged total for amount. Return empty strings when unreadable.` },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          payee: { type: Type.STRING },
+          date: { type: Type.STRING },
+          amount: { type: Type.NUMBER },
+          subtotal: { type: Type.NUMBER },
+          tax: { type: Type.NUMBER },
+          category: { type: Type.STRING, enum: ACCOUNTING_CATEGORIES },
+          paymentAccountHint: { type: Type.STRING },
+          notes: { type: Type.STRING },
+        },
+        required: ["payee", "date", "amount", "subtotal", "tax", "category", "paymentAccountHint", "notes"],
+      },
+    },
+  });
+  const extracted = JSON.parse(response.text);
+  const receiptPath = await storeReceipt(userId, file);
+  return {
+    extracted,
+    receiptPath,
+    stored: Boolean(receiptPath),
+    fileName: file.originalname || "iPhone receipt",
+  };
 }
 
 async function readPlaidItems(userId) {
@@ -202,7 +247,10 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-app.use("/api", requireAuth);
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/public/receipt-captures/")) return next();
+  return requireAuth(req, res, next);
+});
 
 app.get("/api/auth/me", (req, res) => res.send({ user: req.user }));
 
@@ -363,43 +411,53 @@ app.post("/api/ai/categorize-transactions", async (req, res) => {
 
 app.post("/api/receipts/analyze", upload.single("receipt"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).send("Choose a receipt image or PDF.");
-    if (req.file.size > 10 * 1024 * 1024) return res.status(413).send("Receipt must be under 10 MB.");
-    if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(req.file.mimetype) && req.file.mimetype !== "application/pdf") {
-      return res.status(415).send("Use a JPG, PNG, WEBP, HEIC, or PDF receipt.");
-    }
-    if (!gemini) return res.status(500).send("Missing GEMINI_API_KEY in the server environment.");
-
-    const response = await gemini.models.generateContent({
-      model: process.env.GEMINI_RECEIPT_MODEL || "gemini-2.5-flash",
-      contents: [
-        { inlineData: { mimeType: req.file.mimetype, data: req.file.buffer.toString("base64") } },
-        { text: `Extract this business receipt. Use YYYY-MM-DD for date. Choose category only from: ${ACCOUNTING_CATEGORIES.join(", ")}. Use the final charged total for amount. Return empty strings when unreadable.` },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            payee: { type: Type.STRING },
-            date: { type: Type.STRING },
-            amount: { type: Type.NUMBER },
-            subtotal: { type: Type.NUMBER },
-            tax: { type: Type.NUMBER },
-            category: { type: Type.STRING, enum: ACCOUNTING_CATEGORIES },
-            paymentAccountHint: { type: Type.STRING },
-            notes: { type: Type.STRING },
-          },
-          required: ["payee", "date", "amount", "subtotal", "tax", "category", "paymentAccountHint", "notes"],
-        },
-      },
-    });
-    const extracted = JSON.parse(response.text);
-    const receiptPath = await storeReceipt(req.user.id, req.file);
-    res.send({ extracted, receiptPath, stored: Boolean(receiptPath) });
+    res.send(await analyzeReceiptFile(req.file, req.user.id));
   } catch (error) {
     console.error("Receipt analysis error:", error);
     res.status(500).send(error.message || "Could not analyze receipt.");
+  }
+});
+
+app.post("/api/receipt-captures", async (req, res) => {
+  const token = crypto.randomBytes(24).toString("base64url");
+  await pool.query(
+    `INSERT INTO receipt_capture_sessions (token, user_id, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+    [token, req.user.id]
+  );
+  res.status(201).send({ token, expiresInSeconds: 600 });
+});
+
+app.get("/api/receipt-captures/:token", async (req, res) => {
+  const result = await pool.query(
+    `SELECT status, result, expires_at FROM receipt_capture_sessions
+     WHERE token = $1 AND user_id = $2`,
+    [req.params.token, req.user.id]
+  );
+  const session = result.rows[0];
+  if (!session) return res.status(404).send("Capture session not found.");
+  if (new Date(session.expires_at) < new Date()) return res.status(410).send("Capture session expired.");
+  res.send(session);
+});
+
+app.post("/api/public/receipt-captures/:token", upload.single("receipt"), async (req, res) => {
+  try {
+    const sessionResult = await pool.query(
+      `SELECT token, user_id FROM receipt_capture_sessions
+       WHERE token = $1 AND status = 'waiting' AND expires_at > NOW()`,
+      [req.params.token]
+    );
+    const session = sessionResult.rows[0];
+    if (!session) return res.status(410).send("This capture link expired or was already used.");
+    const result = await analyzeReceiptFile(req.file, session.user_id);
+    await pool.query(
+      `UPDATE receipt_capture_sessions SET status = 'complete', result = $1 WHERE token = $2`,
+      [result, session.token]
+    );
+    res.send({ success: true });
+  } catch (error) {
+    console.error("Remote receipt capture error:", error);
+    res.status(500).send(error.message || "Could not process receipt.");
   }
 });
 

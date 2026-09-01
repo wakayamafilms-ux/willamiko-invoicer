@@ -2,12 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import html2pdf from "html2pdf.js";
 import "./App.css";
 import html2canvas from "html2canvas";
+import QRCode from "qrcode";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV
     ? "http://127.0.0.1:3001"
     : "https://willamiko-invoicer.onrender.com");
+const PUBLIC_APP_URL =
+  import.meta.env.VITE_PUBLIC_APP_URL ||
+  (import.meta.env.DEV
+    ? "https://willamiko-invoicer-1.onrender.com"
+    : window.location.origin);
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 120000) {
   const controller = new AbortController();
@@ -345,7 +351,11 @@ function App() {
   const [receiptAttachment, setReceiptAttachment] = useState(null);
   const [receiptNotice, setReceiptNotice] = useState("");
   const [isAnalyzingReceipt, setIsAnalyzingReceipt] = useState(false);
-  const [showWebcam, setShowWebcam] = useState(false);
+  const [remoteCapture, setRemoteCapture] = useState(null);
+  const [captureToken] = useState(() =>
+    new URLSearchParams(window.location.search).get("receiptCapture")
+  );
+  const [mobileCaptureStatus, setMobileCaptureStatus] = useState("");
   const [bankNotice, setBankNotice] = useState("");
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [isPlaidConnecting, setIsPlaidConnecting] = useState(false);
@@ -381,8 +391,6 @@ const [activeInvoice, setActiveInvoice] = useState(null);
   const toolbarMoreRef = useRef(null);
   const lastSavedInvoiceSnapshotRef = useRef(null);
   const receiptInputRef = useRef(null);
-  const webcamVideoRef = useRef(null);
-  const webcamStreamRef = useRef(null);
 
   function applyAccountData(data = {}) {
     setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
@@ -519,6 +527,43 @@ const [activeInvoice, setActiveInvoice] = useState(null);
       }
     })();
   }, [dashboardView, currentUser]);
+
+  useEffect(() => {
+    if (!remoteCapture?.token || !currentUser) return undefined;
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/api/receipt-captures/${encodeURIComponent(remoteCapture.token)}`
+        );
+        if (!response.ok) return;
+        const session = await response.json();
+        if (session.status !== "complete" || !session.result) return;
+        const result = session.result;
+        const extracted = result.extracted || {};
+        setExpenseForm((current) => ({
+          ...current,
+          date: /^\d{4}-\d{2}-\d{2}$/.test(extracted.date || "") ? extracted.date : current.date,
+          payee: extracted.payee || current.payee,
+          amount: extracted.amount || current.amount,
+          category: EXPENSE_CATEGORIES.includes(extracted.category) ? extracted.category : current.category,
+          notes: [extracted.notes, extracted.tax ? `Tax: ${formatMoney(extracted.tax)}` : ""]
+            .filter(Boolean)
+            .join(" · "),
+        }));
+        setReceiptAttachment({
+          name: result.fileName || "iPhone receipt",
+          path: result.receiptPath || null,
+          stored: result.stored,
+          previewUrl: null,
+        });
+        setReceiptNotice("iPhone receipt received. Review the details before saving.");
+        setRemoteCapture(null);
+      } catch (error) {
+        console.error("Receipt capture polling failed:", error);
+      }
+    }, 2000);
+    return () => window.clearInterval(interval);
+  }, [remoteCapture, currentUser]);
 
   async function createUser(event) {
     event.preventDefault();
@@ -932,40 +977,42 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     }
   }
 
-  async function openWebcam() {
+  async function startRemoteCapture() {
+    setReceiptNotice("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/receipt-captures`, {
+        method: "POST",
       });
-      webcamStreamRef.current = stream;
-      setShowWebcam(true);
-      window.setTimeout(() => {
-        if (webcamVideoRef.current) webcamVideoRef.current.srcObject = stream;
-      }, 0);
+      if (!response.ok) throw new Error(await response.text());
+      const session = await response.json();
+      const captureUrl = `${PUBLIC_APP_URL}/?receiptCapture=${encodeURIComponent(session.token)}`;
+      const qrDataUrl = await QRCode.toDataURL(captureUrl, {
+        width: 280,
+        margin: 1,
+        color: { dark: "#292721", light: "#faf8f1" },
+      });
+      setRemoteCapture({ token: session.token, captureUrl, qrDataUrl });
     } catch (error) {
-      setReceiptNotice(error.message || "Camera access was not available.");
+      setReceiptNotice(error.message || "Could not start iPhone capture.");
     }
   }
 
-  function closeWebcam() {
-    webcamStreamRef.current?.getTracks().forEach((track) => track.stop());
-    webcamStreamRef.current = null;
-    setShowWebcam(false);
-  }
-
-  function captureWebcamReceipt() {
-    const video = webcamVideoRef.current;
-    if (!video?.videoWidth) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      closeWebcam();
-      analyzeReceipt(new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" }));
-    }, "image/jpeg", 0.9);
+  async function uploadRemoteReceipt(file) {
+    if (!file || !captureToken) return;
+    setMobileCaptureStatus("Uploading and reading receipt…");
+    try {
+      const formData = new FormData();
+      formData.append("receipt", file, file.name || `iphone-receipt-${Date.now()}.jpg`);
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/api/public/receipt-captures/${encodeURIComponent(captureToken)}`,
+        { method: "POST", body: formData },
+        120000
+      );
+      if (!response.ok) throw new Error(await response.text());
+      setMobileCaptureStatus("Receipt sent. You can return to your computer.");
+    } catch (error) {
+      setMobileCaptureStatus(error.message || "Could not send receipt.");
+    }
   }
 
   function updateConnectionForm(field, value) {
@@ -2021,6 +2068,28 @@ setTimeout(() => {
   }
 
 
+  if (captureToken) {
+    return (
+      <div className="mobile-capture-page">
+        <div className="mobile-capture-card">
+          <span>Willamiko receipt capture</span>
+          <h1>Take a receipt photo</h1>
+          <p>Use the rear camera and fill the frame with the entire receipt.</p>
+          <label className="mobile-capture-button">
+            Open iPhone camera
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(event) => uploadRemoteReceipt(event.target.files?.[0])}
+            />
+          </label>
+          {mobileCaptureStatus && <div className="mobile-capture-status">{mobileCaptureStatus}</div>}
+        </div>
+      </div>
+    );
+  }
+
   if (screen === "login") {
     return (
       <div className="login-page">
@@ -2541,8 +2610,8 @@ setTimeout(() => {
                   >
                     {isAnalyzingReceipt ? "Reading…" : "Upload / take photo"}
                   </button>
-                  <button type="button" className="receipt-secondary" onClick={openWebcam}>
-                    Use webcam
+                  <button type="button" className="receipt-secondary" onClick={startRemoteCapture}>
+                    Use iPhone
                   </button>
                 </div>
                 {(receiptAttachment || receiptNotice) && (
@@ -2636,20 +2705,22 @@ setTimeout(() => {
                 )}
               </div>
 
-              {showWebcam && (
-                <div className="qb-modal webcam-modal" onClick={closeWebcam}>
-                  <div className="webcam-card" onClick={(event) => event.stopPropagation()}>
-                    <div className="webcam-head">
-                      <div>
-                        <span>Camera</span>
-                        <h2>Center the receipt in frame</h2>
-                      </div>
-                      <button type="button" onClick={closeWebcam}>×</button>
-                    </div>
-                    <video ref={webcamVideoRef} autoPlay playsInline muted />
-                    <button type="button" className="qb-new-btn" onClick={captureWebcamReceipt}>
-                      Capture receipt
+              {remoteCapture && (
+                <div className="qb-modal remote-capture-modal" onClick={() => setRemoteCapture(null)}>
+                  <div className="remote-capture-card" onClick={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="invoice-action-close"
+                      aria-label="Close"
+                      onClick={() => setRemoteCapture(null)}
+                    >
+                      ×
                     </button>
+                    <span>Use iPhone</span>
+                    <h2>Scan to photograph receipt</h2>
+                    <p>Open the Camera app on your iPhone and point it at this code.</p>
+                    <img src={remoteCapture.qrDataUrl} alt="One-time iPhone receipt capture QR code" />
+                    <small>Waiting for photo · Link expires in 10 minutes</small>
                   </div>
                 </div>
               )}

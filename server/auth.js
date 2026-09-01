@@ -113,6 +113,14 @@ async function initializeDatabase() {
       cursor TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS receipt_capture_sessions (
+      token TEXT PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'waiting',
+      result JSONB,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   const adminUsername = normalizeUsername(process.env.ADMIN_USERNAME);
