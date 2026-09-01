@@ -297,6 +297,8 @@ function App() {
   const [invoiceStatus, setInvoiceStatus] = useState("draft");
   const [status, setStatus] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [emailConnectionStatus, setEmailConnectionStatus] = useState("");
   const [showSentConfirmation, setShowSentConfirmation] = useState(false);
   const DEFAULT_LOGO =
         "https://images.squarespace-cdn.com/content/5764c682893fc02726348910/3a1bb193-0ffa-47e5-b169-5cc2f138caf8/j.waka_logo_large.jpg";
@@ -1905,12 +1907,6 @@ clonedDoc.querySelectorAll(".bill-line, .bill-to-fields input").forEach((el) => 
       `${getDocumentLabel(documentType, "short")}_${invoiceNo}_from_WILLAMIKO_LLC.pdf`
     );
     
-    if (emailLogo) {
-      formData.append("logo", emailLogo);
-    } else if (logo) {
-      formData.append("logo", logo);
-    }
-
     let res;
 
     try {
@@ -2064,6 +2060,21 @@ setTimeout(() => {
       alert(`Email failed: ${message}`);
       setStatus("");
       setIsSendingEmail(false);
+    }
+  }
+
+  async function checkEmailConnection() {
+    setIsCheckingEmail(true);
+    setEmailConnectionStatus("Checking Gmail connection…");
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/email/status`, {}, 45000);
+      if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      setEmailConnectionStatus(`Connected as ${result.sender}`);
+    } catch (error) {
+      setEmailConnectionStatus(error.message || "Could not connect to Gmail.");
+    } finally {
+      setIsCheckingEmail(false);
     }
   }
 
@@ -3735,10 +3746,20 @@ setTimeout(() => {
 )}
 
       <div className="email-modal-header">
-
-      
-
-        <strong>Email Preview</strong>
+        <div className="email-modal-title">
+          <strong>Email Preview</strong>
+          <button
+            type="button"
+            className="email-connection-check"
+            onClick={checkEmailConnection}
+            disabled={isCheckingEmail}
+          >
+            {isCheckingEmail ? "Checking…" : "Check Gmail connection"}
+          </button>
+          {emailConnectionStatus && (
+            <span className="email-connection-status">{emailConnectionStatus}</span>
+          )}
+        </div>
 
         <div>
         <button onClick={sendEmail} disabled={isSendingEmail}>

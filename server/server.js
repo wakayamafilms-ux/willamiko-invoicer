@@ -191,6 +191,22 @@ function requirePlaidConfig(res) {
   return true;
 }
 
+function createEmailTransporter() {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error("Missing EMAIL_USER or EMAIL_PASS in the Render backend environment.");
+  }
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER.trim(),
+      pass: process.env.EMAIL_PASS.replace(/\s/g, ""),
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
+  });
+}
+
 function normalizePlaidTransaction(transaction, accountName) {
   return {
     id: transaction.transaction_id,
@@ -269,6 +285,21 @@ app.post("/api/auth/change-password", async (req, res) => {
     req.user.id,
   ]);
   res.send({ success: true });
+});
+
+app.get("/api/email/status", async (req, res) => {
+  try {
+    const transporter = createEmailTransporter();
+    await transporter.verify();
+    res.send({ connected: true, sender: process.env.EMAIL_USER.trim() });
+  } catch (error) {
+    console.error("Email connection check failed:", error);
+    res.status(503).send(
+      error.code === "EAUTH"
+        ? "Gmail rejected the credentials. Use a 16-character Google App Password."
+        : error.message || "Could not connect to Gmail."
+    );
+  }
 });
 
 app.get("/api/data", async (req, res) => {
@@ -754,10 +785,6 @@ app.post(
         return res.status(400).send("Missing recipient email address.");
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        return res.status(500).send("Missing EMAIL_USER or EMAIL_PASS in .env file.");
-      }
-
       const files = [];
 
       if (req.files.invoicePdf?.[0]) {
@@ -780,13 +807,7 @@ app.post(
       
       
 
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+      const transporter = createEmailTransporter();
 
       await transporter.sendMail({
         from: `"WILLAMIKO .LLC" <${process.env.EMAIL_USER}>`,

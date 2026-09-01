@@ -1414,6 +1414,36 @@ select:focus {
   background: #6b7280;
 }
 
+.email-modal-header {
+  height: auto;
+  min-height: 64px;
+  gap: 16px;
+}
+
+.email-modal-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.email-modal-header .email-connection-check {
+  margin: 0;
+  border: 1px solid #7e8a91;
+  padding: 7px 10px;
+  background: #fff;
+  color: #39362f;
+  font-size: 11px;
+}
+
+.email-connection-status {
+  flex-basis: 100%;
+  color: #4f4b43;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .email-preview-wrap {
   padding: 28px;
   background: #f4f5f8;
