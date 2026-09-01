@@ -2226,6 +2226,75 @@ select:focus {
   max-width: 100%;
 }
 
+/* Expense typography and table alignment overrides. */
+.receipt-capture-copy h2,
+.webcam-head h2 {
+  margin: 3px 0 4px;
+  color: #292721;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.receipt-capture-copy p {
+  color: #4f4b43;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.webcam-head > div > span {
+  color: #4f4b43;
+}
+
+.qb-table-card:has(.qb-table-head.expenses) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.qb-table-head.expenses,
+.qb-table-row.expenses {
+  grid-template-columns:
+    92px
+    minmax(130px, 1.3fr)
+    minmax(112px, 1fr)
+    minmax(112px, 1fr)
+    88px
+    100px
+    minmax(164px, 0.85fr);
+  width: 100%;
+  min-width: 900px;
+  gap: 8px;
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+.qb-table-head.expenses > *,
+.qb-table-row.expenses > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.qb-table-head.expenses > :last-child {
+  text-align: right;
+}
+
+.qb-table-row.expenses .row-actions {
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  overflow: hidden;
+}
+
+.qb-table-row.expenses .row-actions button {
+  min-width: auto;
+  padding: 0 7px;
+  white-space: nowrap;
+}
+
 .qb-main {
   overflow-x: hidden;
 }
