@@ -6,8 +6,21 @@ const PDFDocument = require("pdfkit");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { Configuration, PlaidApi, PlaidEnvironments } = require("plaid");
 const { GoogleGenAI, Type } = require("@google/genai");
+const {
+  pool,
+  normalizeUsername,
+  hashPassword,
+  passwordMatches,
+  signToken,
+  initializeDatabase,
+  requireAuth,
+  requireAdmin,
+  encryptSecret,
+  decryptSecret,
+} = require("./auth");
 
 dotenv.config();
 
@@ -19,7 +32,6 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 const PLAID_ENV = process.env.PLAID_ENV || "sandbox";
-const plaidItemsFile = path.join(__dirname, "plaid-items.json");
 const plaidClient =
   process.env.PLAID_CLIENT_ID && process.env.PLAID_SECRET
     ? new PlaidApi(
@@ -57,19 +69,45 @@ const ACCOUNTING_CATEGORIES = [
   "Uncategorized",
 ];
 
-function readPlaidItems() {
-  if (!fs.existsSync(plaidItemsFile)) return [];
-
-  try {
-    return JSON.parse(fs.readFileSync(plaidItemsFile, "utf8"));
-  } catch (err) {
-    console.error("Could not read Plaid item store:", err);
-    return [];
-  }
+async function readPlaidItems(userId) {
+  const result = await pool.query(
+    `SELECT item_id, access_token, institution, cursor, created_at
+     FROM plaid_items WHERE user_id = $1 ORDER BY created_at`,
+    [userId]
+  );
+  return result.rows.map((item) => ({
+    ...item,
+    access_token: decryptSecret(item.access_token),
+  }));
 }
 
-function writePlaidItems(items) {
-  fs.writeFileSync(plaidItemsFile, JSON.stringify(items, null, 2));
+async function writePlaidItems(userId, items) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM plaid_items WHERE user_id = $1", [userId]);
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO plaid_items
+          (item_id, user_id, access_token, institution, cursor, created_at)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))`,
+        [
+          item.item_id,
+          userId,
+          encryptSecret(item.access_token),
+          item.institution,
+          item.cursor || null,
+          item.created_at || null,
+        ]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function requirePlaidConfig(res) {
@@ -116,6 +154,122 @@ app.use("/invoices", express.static(invoicesDir));
 // TEST ROUTE
 app.get("/", (req, res) => {
   res.send("Server is running");
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const username = normalizeUsername(req.body.username);
+    const result = await pool.query(
+      "SELECT id, username, password_hash, role FROM users WHERE username = $1 AND active = TRUE",
+      [username]
+    );
+    const user = result.rows[0];
+    if (!user || !passwordMatches(String(req.body.password || ""), user.password_hash)) {
+      return res.status(401).send("Incorrect username or password.");
+    }
+    res.send({
+      token: signToken(user),
+      user: { id: user.id, username: user.username, role: user.role },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).send("Could not sign in.");
+  }
+});
+
+app.use("/api", requireAuth);
+
+app.get("/api/auth/me", (req, res) => res.send({ user: req.user }));
+
+app.post("/api/auth/change-password", async (req, res) => {
+  const currentPassword = String(req.body.currentPassword || "");
+  const newPassword = String(req.body.newPassword || "");
+  if (newPassword.length < 12) {
+    return res.status(400).send("New password must be at least 12 characters.");
+  }
+  const result = await pool.query("SELECT password_hash FROM users WHERE id = $1", [req.user.id]);
+  if (!passwordMatches(currentPassword, result.rows[0]?.password_hash)) {
+    return res.status(401).send("Current password is incorrect.");
+  }
+  await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
+    hashPassword(newPassword),
+    req.user.id,
+  ]);
+  res.send({ success: true });
+});
+
+app.get("/api/data", async (req, res) => {
+  const result = await pool.query("SELECT data FROM user_data WHERE user_id = $1", [req.user.id]);
+  res.send({ data: result.rows[0]?.data || {}, isNew: !result.rows[0] });
+});
+
+app.put("/api/data", async (req, res) => {
+  const data = req.body?.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return res.status(400).send("Data must be an object.");
+  }
+  await pool.query(
+    `INSERT INTO user_data (user_id, data, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+    [req.user.id, data]
+  );
+  res.send({ success: true });
+});
+
+app.get("/api/admin/users", requireAdmin, async (req, res) => {
+  const result = await pool.query(
+    "SELECT id, username, role, active, created_at FROM users ORDER BY created_at"
+  );
+  res.send({ users: result.rows });
+});
+
+app.post("/api/admin/users", requireAdmin, async (req, res) => {
+  try {
+    const username = normalizeUsername(req.body.username);
+    const password = String(req.body.password || "");
+    if (!/^[a-z0-9._-]{3,40}$/.test(username)) {
+      return res.status(400).send("Username must be 3–40 letters, numbers, dots, dashes, or underscores.");
+    }
+    if (password.length < 12) return res.status(400).send("Password must be at least 12 characters.");
+    const result = await pool.query(
+      `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'user')
+       RETURNING id, username, role, active, created_at`,
+      [username, hashPassword(password)]
+    );
+    res.status(201).send({ user: result.rows[0] });
+  } catch (error) {
+    if (error.code === "23505") return res.status(409).send("That username already exists.");
+    console.error("Create user error:", error);
+    res.status(500).send("Could not create user.");
+  }
+});
+
+app.patch("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  if (String(req.user.id) === String(req.params.id) && req.body.active === false) {
+    return res.status(400).send("You cannot disable your own account.");
+  }
+  const fields = [];
+  const values = [];
+  if (typeof req.body.active === "boolean") {
+    values.push(req.body.active);
+    fields.push(`active = $${values.length}`);
+  }
+  if (req.body.password) {
+    if (String(req.body.password).length < 12) {
+      return res.status(400).send("Password must be at least 12 characters.");
+    }
+    values.push(hashPassword(String(req.body.password)));
+    fields.push(`password_hash = $${values.length}`);
+  }
+  if (!fields.length) return res.status(400).send("No account changes supplied.");
+  values.push(req.params.id);
+  const result = await pool.query(
+    `UPDATE users SET ${fields.join(", ")} WHERE id = $${values.length}
+     RETURNING id, username, role, active, created_at`,
+    values
+  );
+  if (!result.rows[0]) return res.status(404).send("User not found.");
+  res.send({ user: result.rows[0] });
 });
 
 app.post("/api/ai/categorize-transactions", async (req, res) => {
@@ -188,7 +342,7 @@ app.post("/api/plaid/create-link-token", async (req, res) => {
   try {
     const request = {
       user: {
-        client_user_id: req.body.userId || "willamiko-user",
+        client_user_id: `willamiko-user-${req.user.id}`,
       },
       client_name: "Willamiko Accounter",
       products: ["transactions"],
@@ -226,10 +380,10 @@ app.post("/api/plaid/exchange-public-token", async (req, res) => {
     });
     const accessToken = tokenResponse.data.access_token;
     const itemId = tokenResponse.data.item_id;
-    const items = readPlaidItems();
+    const items = await readPlaidItems(req.user.id);
     const existing = items.filter((item) => item.item_id !== itemId);
 
-    writePlaidItems([
+    await writePlaidItems(req.user.id, [
       ...existing,
       {
         item_id: itemId,
@@ -252,7 +406,7 @@ app.post("/api/plaid/sync-transactions", async (req, res) => {
 
   try {
     const requestedItemId = req.body.item_id;
-    const items = readPlaidItems();
+    const items = await readPlaidItems(req.user.id);
     const selectedItems = requestedItemId
       ? items.filter((item) => item.item_id === requestedItemId)
       : items;
@@ -334,7 +488,7 @@ app.post("/api/plaid/sync-transactions", async (req, res) => {
         const synced = syncedItems.find((syncedItem) => syncedItem.item_id === item.item_id);
         return synced || item;
       });
-      writePlaidItems(updatedItems);
+      await writePlaidItems(req.user.id, updatedItems);
     }
 
     res.send({
@@ -355,7 +509,7 @@ app.post("/api/plaid/refresh-transactions", async (req, res) => {
 
   try {
     const requestedItemId = req.body.item_id;
-    const items = readPlaidItems();
+    const items = await readPlaidItems(req.user.id);
     const selectedItems = requestedItemId
       ? items.filter((item) => item.item_id === requestedItemId)
       : items;
@@ -389,14 +543,17 @@ app.delete("/api/plaid/items/:itemId", async (req, res) => {
   if (!requirePlaidConfig(res)) return;
 
   try {
-    const items = readPlaidItems();
+    const items = await readPlaidItems(req.user.id);
     const item = items.find((savedItem) => savedItem.item_id === req.params.itemId);
 
     if (item) {
       await plaidClient.itemRemove({ access_token: item.access_token });
     }
 
-    writePlaidItems(items.filter((savedItem) => savedItem.item_id !== req.params.itemId));
+    await writePlaidItems(
+      req.user.id,
+      items.filter((savedItem) => savedItem.item_id !== req.params.itemId)
+    );
     res.send({ success: true });
   } catch (err) {
     console.error("Plaid remove item error:", err.response?.data || err);
@@ -405,7 +562,7 @@ app.delete("/api/plaid/items/:itemId", async (req, res) => {
 });
 
 // GENERATE PDF
-app.post("/generate-pdf", (req, res) => {
+app.post("/generate-pdf", requireAuth, (req, res) => {
   const { clientName, items } = req.body;
 
   const doc = new PDFDocument();
@@ -434,13 +591,13 @@ app.post("/generate-pdf", (req, res) => {
 });
 
 // HOST INVOICE PDF
-app.post("/host-invoice-pdf", upload.single("invoicePdf"), async (req, res) => {
+app.post("/host-invoice-pdf", requireAuth, upload.single("invoicePdf"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).send("No PDF uploaded");
     }
 
-    const filename = `invoice-${Date.now()}.pdf`;
+    const filename = `invoice-${crypto.randomUUID()}.pdf`;
     const filepath = path.join(invoicesDir, filename);
 
     fs.writeFileSync(filepath, req.file.buffer);
@@ -457,6 +614,7 @@ app.post("/host-invoice-pdf", upload.single("invoicePdf"), async (req, res) => {
 // SEND EMAIL
 app.post(
   "/send-email",
+  requireAuth,
   upload.fields([
     { name: "invoicePdf", maxCount: 1 },
     { name: "attachments", maxCount: 10 },
@@ -630,6 +788,13 @@ app.post(
   }
 );
 
-app.listen(PORT, "127.0.0.1", () => {
-  console.log(`Server running on http://127.0.0.1:${PORT}`);
-});
+initializeDatabase()
+  .then(() => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Server startup failed:", error.message);
+    process.exit(1);
+  });
