@@ -214,6 +214,40 @@ async function createEmailTransporter() {
   });
 }
 
+async function sendEmailMessage(message) {
+  if (!process.env.RESEND_API_KEY) {
+    const transporter = await createEmailTransporter();
+    return transporter.sendMail(message);
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM || message.from,
+      reply_to: message.replyTo,
+      to: message.to,
+      cc: message.cc,
+      subject: message.subject,
+      html: message.html,
+      attachments: message.attachments?.map((file) => ({
+        filename: file.filename,
+        content: Buffer.isBuffer(file.content)
+          ? file.content.toString("base64")
+          : file.content,
+      })),
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.message || result.error || `Email API failed (${response.status}).`);
+  }
+  return result;
+}
+
 function normalizePlaidTransaction(transaction, accountName) {
   return {
     id: transaction.transaction_id,
@@ -318,6 +352,13 @@ app.post("/api/auth/change-password", async (req, res) => {
 
 app.get("/api/email/status", async (req, res) => {
   try {
+    if (process.env.RESEND_API_KEY) {
+      return res.send({
+        connected: true,
+        provider: "Resend HTTPS API",
+        sender: process.env.EMAIL_FROM || process.env.EMAIL_USER || "Not configured",
+      });
+    }
     const transporter = await createEmailTransporter();
     await transporter.verify();
     res.send({ connected: true, sender: process.env.EMAIL_USER.trim() });
@@ -839,9 +880,7 @@ app.post(
       
       
 
-      const transporter = await createEmailTransporter();
-
-      await transporter.sendMail({
+      await sendEmailMessage({
         from: `"WILLAMIKO .LLC" <${process.env.EMAIL_USER}>`,
         replyTo: from || process.env.EMAIL_USER,
         to,
