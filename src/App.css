@@ -2,6 +2,7 @@
   box-sizing: border-box;
 }
 
+
 /* Aerospace dashboard skin */
 .qb-dashboard {
   background: #eef1f3;
@@ -2089,6 +2090,161 @@ select:focus {
   }
 }
 
+.receipt-capture-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #dedee3;
+  border-radius: 18px;
+  padding: 20px;
+  background: #faf8f1;
+  overflow: hidden;
+}
+
+.receipt-capture-copy > span,
+.webcam-head span {
+  color: #087f8c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.receipt-capture-copy h2,
+.webcam-head h2 {
+  margin: 4px 0 5px;
+  color: #39362f;
+  font-size: 18px;
+}
+
+.receipt-capture-copy p {
+  margin: 0;
+  color: #66737c;
+  font-size: 12px;
+}
+
+.receipt-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.receipt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.receipt-secondary {
+  min-height: 38px;
+  border: 1px solid #39362f;
+  border-radius: 10px;
+  padding: 0 15px;
+  background: transparent;
+  color: #39362f;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.receipt-review {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid #dedee3;
+  padding-top: 14px;
+}
+
+.receipt-review img {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  border: 1px solid #dedee3;
+}
+
+.receipt-review div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.receipt-review span {
+  color: #66737c;
+  font-size: 12px;
+}
+
+.receipt-badge {
+  color: #087f8c;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.webcam-card {
+  width: min(680px, calc(100vw - 32px));
+  border: 1px solid #39362f;
+  padding: 20px;
+  background: #faf8f1;
+}
+
+.webcam-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.webcam-head button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 24px;
+}
+
+.webcam-card video {
+  display: block;
+  width: 100%;
+  max-height: 62vh;
+  margin-bottom: 14px;
+  background: #181818;
+  object-fit: contain;
+}
+
+/* Keep dashboard content inside its available column; wide tables scroll locally. */
+.qb-dashboard,
+.qb-main,
+.accounting-stack,
+.expense-composer,
+.expense-composer > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.qb-main {
+  overflow-x: hidden;
+}
+
+@media (max-width: 760px) {
+  .receipt-capture-card {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .receipt-actions {
+    justify-content: stretch;
+  }
+
+  .receipt-actions button {
+    flex: 1;
+  }
+}
+
 .qb-logo {
   width: 42px;
   height: 42px;
@@ -3909,4 +4065,23 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+}
+
+/* Final overflow guard: dashboard cards stay within the main content margins. */
+.qb-main {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.accounting-stack,
+.receipt-capture-card,
+.expense-composer {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.expense-composer > * {
+  min-width: 0;
+  max-width: 100%;
 }

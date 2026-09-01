@@ -69,6 +69,31 @@ const ACCOUNTING_CATEGORIES = [
   "Uncategorized",
 ];
 
+async function storeReceipt(userId, file) {
+  const baseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!baseUrl || !serviceKey) return null;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  await fetch(`${baseUrl}/storage/v1/bucket`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ id: "receipts", name: "receipts", public: false }),
+  });
+  const extension = path.extname(file.originalname || "") ||
+    (file.mimetype === "application/pdf" ? ".pdf" : ".jpg");
+  const objectPath = `${userId}/${crypto.randomUUID()}${extension.toLowerCase()}`;
+  const response = await fetch(
+    `${baseUrl}/storage/v1/object/receipts/${encodeURIComponent(objectPath).replace(/%2F/g, "/")}`,
+    {
+      method: "POST",
+      headers: { ...headers, "Content-Type": file.mimetype, "x-upsert": "false" },
+      body: file.buffer,
+    }
+  );
+  if (!response.ok) throw new Error(`Receipt storage failed: ${await response.text()}`);
+  return objectPath;
+}
+
 async function readPlaidItems(userId) {
   const result = await pool.query(
     `SELECT item_id, access_token, institution, cursor, created_at
@@ -333,6 +358,48 @@ app.post("/api/ai/categorize-transactions", async (req, res) => {
   } catch (err) {
     console.error("AI categorization error:", err);
     res.status(500).send(err.message || "Could not categorize transactions.");
+  }
+});
+
+app.post("/api/receipts/analyze", upload.single("receipt"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send("Choose a receipt image or PDF.");
+    if (req.file.size > 10 * 1024 * 1024) return res.status(413).send("Receipt must be under 10 MB.");
+    if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(req.file.mimetype) && req.file.mimetype !== "application/pdf") {
+      return res.status(415).send("Use a JPG, PNG, WEBP, HEIC, or PDF receipt.");
+    }
+    if (!gemini) return res.status(500).send("Missing GEMINI_API_KEY in the server environment.");
+
+    const response = await gemini.models.generateContent({
+      model: process.env.GEMINI_RECEIPT_MODEL || "gemini-2.5-flash",
+      contents: [
+        { inlineData: { mimeType: req.file.mimetype, data: req.file.buffer.toString("base64") } },
+        { text: `Extract this business receipt. Use YYYY-MM-DD for date. Choose category only from: ${ACCOUNTING_CATEGORIES.join(", ")}. Use the final charged total for amount. Return empty strings when unreadable.` },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            payee: { type: Type.STRING },
+            date: { type: Type.STRING },
+            amount: { type: Type.NUMBER },
+            subtotal: { type: Type.NUMBER },
+            tax: { type: Type.NUMBER },
+            category: { type: Type.STRING, enum: ACCOUNTING_CATEGORIES },
+            paymentAccountHint: { type: Type.STRING },
+            notes: { type: Type.STRING },
+          },
+          required: ["payee", "date", "amount", "subtotal", "tax", "category", "paymentAccountHint", "notes"],
+        },
+      },
+    });
+    const extracted = JSON.parse(response.text);
+    const receiptPath = await storeReceipt(req.user.id, req.file);
+    res.send({ extracted, receiptPath, stored: Boolean(receiptPath) });
+  } catch (error) {
+    console.error("Receipt analysis error:", error);
+    res.status(500).send(error.message || "Could not analyze receipt.");
   }
 });
 

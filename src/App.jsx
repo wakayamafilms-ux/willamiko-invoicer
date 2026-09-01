@@ -342,6 +342,10 @@ function App() {
   });
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [lastExpenseAction, setLastExpenseAction] = useState(null);
+  const [receiptAttachment, setReceiptAttachment] = useState(null);
+  const [receiptNotice, setReceiptNotice] = useState("");
+  const [isAnalyzingReceipt, setIsAnalyzingReceipt] = useState(false);
+  const [showWebcam, setShowWebcam] = useState(false);
   const [bankNotice, setBankNotice] = useState("");
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [isPlaidConnecting, setIsPlaidConnecting] = useState(false);
@@ -376,6 +380,9 @@ const [activeInvoice, setActiveInvoice] = useState(null);
   const newMenuRef = useRef(null);
   const toolbarMoreRef = useRef(null);
   const lastSavedInvoiceSnapshotRef = useRef(null);
+  const receiptInputRef = useRef(null);
+  const webcamVideoRef = useRef(null);
+  const webcamStreamRef = useRef(null);
 
   function applyAccountData(data = {}) {
     setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
@@ -882,6 +889,85 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     setExpenseForm((current) => ({ ...current, [field]: value }));
   }
 
+  async function analyzeReceipt(file) {
+    if (!file) return;
+    setIsAnalyzingReceipt(true);
+    setReceiptNotice("Reading receipt…");
+    try {
+      const formData = new FormData();
+      formData.append("receipt", file, file.name || `receipt-${Date.now()}.jpg`);
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/receipts/analyze`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      const extracted = result.extracted || {};
+      setExpenseForm((current) => ({
+        ...current,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(extracted.date || "") ? extracted.date : current.date,
+        payee: extracted.payee || current.payee,
+        amount: extracted.amount || current.amount,
+        category: EXPENSE_CATEGORIES.includes(extracted.category) ? extracted.category : current.category,
+        notes: [extracted.notes, extracted.tax ? `Tax: ${formatMoney(extracted.tax)}` : ""]
+          .filter(Boolean)
+          .join(" · "),
+      }));
+      setReceiptAttachment({
+        name: file.name || "Camera receipt",
+        path: result.receiptPath || null,
+        stored: result.stored,
+        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      });
+      setReceiptNotice(
+        result.stored
+          ? "Receipt extracted and stored privately. Review the details before saving."
+          : "Receipt extracted. Add Supabase Storage settings to retain the image online."
+      );
+    } catch (error) {
+      setReceiptNotice(error.message || "Could not read receipt.");
+    } finally {
+      setIsAnalyzingReceipt(false);
+      if (receiptInputRef.current) receiptInputRef.current.value = "";
+    }
+  }
+
+  async function openWebcam() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      webcamStreamRef.current = stream;
+      setShowWebcam(true);
+      window.setTimeout(() => {
+        if (webcamVideoRef.current) webcamVideoRef.current.srcObject = stream;
+      }, 0);
+    } catch (error) {
+      setReceiptNotice(error.message || "Camera access was not available.");
+    }
+  }
+
+  function closeWebcam() {
+    webcamStreamRef.current?.getTracks().forEach((track) => track.stop());
+    webcamStreamRef.current = null;
+    setShowWebcam(false);
+  }
+
+  function captureWebcamReceipt() {
+    const video = webcamVideoRef.current;
+    if (!video?.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      closeWebcam();
+      analyzeReceipt(new File([blob], `receipt-${Date.now()}.jpg`, { type: "image/jpeg" }));
+    }, "image/jpeg", 0.9);
+  }
+
   function updateConnectionForm(field, value) {
     setConnectionForm((current) => ({ ...current, [field]: value }));
   }
@@ -990,6 +1076,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
         ...expenseForm,
         amount: Math.abs(amount),
         status: "Recorded",
+        receipt: receiptAttachment || previous?.receipt || null,
       };
       saveExpenses(
         expenses.map((expense) =>
@@ -1005,6 +1092,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
         amount: Math.abs(amount),
         status: "Recorded",
         source: "Manual",
+        receipt: receiptAttachment,
       };
       saveExpenses([expense, ...expenses]);
       setLastExpenseAction({ type: "add", expense });
@@ -1018,6 +1106,8 @@ const [activeInvoice, setActiveInvoice] = useState(null);
       paymentAccount: expenseForm.paymentAccount,
       notes: "",
     });
+    setReceiptAttachment(null);
+    setReceiptNotice("");
   }
 
   function editExpense(expense) {
@@ -1030,10 +1120,13 @@ const [activeInvoice, setActiveInvoice] = useState(null);
       paymentAccount: expense.paymentAccount,
       notes: expense.notes || "",
     });
+    setReceiptAttachment(expense.receipt || null);
   }
 
   function cancelExpenseEdit() {
     setEditingExpenseId(null);
+    setReceiptAttachment(null);
+    setReceiptNotice("");
     setExpenseForm({
       date: new Date().toISOString().slice(0, 10),
       payee: "",
@@ -2425,6 +2518,46 @@ setTimeout(() => {
 
           {dashboardView === "expenses" && (
             <div className="accounting-stack">
+              <div className="receipt-capture-card">
+                <div className="receipt-capture-copy">
+                  <span>Receipt assistant</span>
+                  <h2>Photograph or upload a receipt</h2>
+                  <p>AI fills the expense fields. Review them before saving.</p>
+                </div>
+                <div className="receipt-actions">
+                  <input
+                    ref={receiptInputRef}
+                    className="receipt-file-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                    capture="environment"
+                    onChange={(event) => analyzeReceipt(event.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    className="qb-new-btn"
+                    disabled={isAnalyzingReceipt}
+                    onClick={() => receiptInputRef.current?.click()}
+                  >
+                    {isAnalyzingReceipt ? "Reading…" : "Upload / take photo"}
+                  </button>
+                  <button type="button" className="receipt-secondary" onClick={openWebcam}>
+                    Use webcam
+                  </button>
+                </div>
+                {(receiptAttachment || receiptNotice) && (
+                  <div className="receipt-review">
+                    {receiptAttachment?.previewUrl && (
+                      <img src={receiptAttachment.previewUrl} alt="Receipt preview" />
+                    )}
+                    <div>
+                      {receiptAttachment && <strong>{receiptAttachment.name}</strong>}
+                      <span>{receiptNotice}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="expense-composer">
                 <input
                   type="date"
@@ -2493,6 +2626,7 @@ setTimeout(() => {
                       <div>{formatMoney(expense.amount)}</div>
                       <div className="row-actions">
                         <button onClick={() => editExpense(expense)}>Edit</button>
+                        {expense.receipt && <span className="receipt-badge">Receipt</span>}
                         <button className="text-danger" onClick={() => deleteExpense(expense.id)}>
                           Delete
                         </button>
@@ -2501,6 +2635,24 @@ setTimeout(() => {
                   ))
                 )}
               </div>
+
+              {showWebcam && (
+                <div className="qb-modal webcam-modal" onClick={closeWebcam}>
+                  <div className="webcam-card" onClick={(event) => event.stopPropagation()}>
+                    <div className="webcam-head">
+                      <div>
+                        <span>Camera</span>
+                        <h2>Center the receipt in frame</h2>
+                      </div>
+                      <button type="button" onClick={closeWebcam}>×</button>
+                    </div>
+                    <video ref={webcamVideoRef} autoPlay playsInline muted />
+                    <button type="button" className="qb-new-btn" onClick={captureWebcamReceipt}>
+                      Capture receipt
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
