@@ -2398,6 +2398,25 @@ select:focus {
   line-height: 1.45;
 }
 
+/* Explicit instruction colors; dashboard/modal rules must not wash these out. */
+.qb-dashboard .receipt-capture-card .receipt-capture-copy > span,
+.qb-dashboard .receipt-capture-card .receipt-capture-copy h2,
+.qb-dashboard .receipt-capture-card .receipt-capture-copy p,
+.qb-dashboard .receipt-capture-card .receipt-review strong,
+.qb-dashboard .receipt-capture-card .receipt-review span,
+.qb-modal .remote-capture-card > span,
+.qb-modal .remote-capture-card h2,
+.qb-modal .remote-capture-card p,
+.qb-modal .remote-capture-card small,
+.mobile-capture-page .mobile-capture-card > span,
+.mobile-capture-page .mobile-capture-card h1,
+.mobile-capture-page .mobile-capture-card p,
+.mobile-capture-page .mobile-capture-status {
+  color: #292721 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
 .qb-main {
   overflow-x: hidden;
 }
