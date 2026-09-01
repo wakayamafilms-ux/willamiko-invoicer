@@ -2016,6 +2016,73 @@ select:focus {
   font-size: 11px;
 }
 
+.password-card {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid #181818;
+  padding: 30px;
+  background: #faf8f1;
+  box-shadow: 8px 8px 0 rgba(24, 24, 24, 0.14);
+}
+
+.password-card h2 {
+  margin: 0 0 8px;
+  color: #39362f;
+  font-family: "Bernhard Antiqua", "BernhardAntiqua", "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.password-card > p {
+  margin: 0 0 24px;
+  color: #66737c;
+  font-size: 12px;
+}
+
+.password-card label {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+  color: #39362f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.password-card label input {
+  min-height: 44px;
+  border: 1px solid #39362f;
+  border-radius: 0;
+  padding: 9px 11px;
+  background: #fff;
+  color: #181818;
+  font: inherit;
+}
+
+.password-card label input:focus {
+  border-color: #5751ff;
+  outline: 2px solid rgba(87, 81, 255, 0.2);
+}
+
+.password-username {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.password-notice {
+  margin: 0 0 14px;
+  color: #39362f;
+  font-size: 12px;
+}
+
+.password-card > .qb-new-btn {
+  width: 100%;
+}
+
 @media (max-width: 800px) {
   .accounts-admin {
     grid-template-columns: 1fr;

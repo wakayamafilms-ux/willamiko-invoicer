@@ -322,6 +322,10 @@ function App() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
+  const [passwordNotice, setPasswordNotice] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [dataReady, setDataReady] = useState(false);
   const [users, setUsers] = useState([]);
   const [newUserForm, setNewUserForm] = useState({ username: "", password: "" });
@@ -553,17 +557,28 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     setAccountNotice(response.ok ? `${user.username}'s password was reset.` : await response.text());
   }
 
-  async function changeMyPassword() {
-    const currentPassword = window.prompt("Enter your current password:");
-    if (!currentPassword) return;
-    const newPassword = window.prompt("Enter a new password (12+ characters):");
-    if (!newPassword) return;
-    const response = await fetchWithTimeout(`${API_BASE_URL}/api/auth/change-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-    window.alert(response.ok ? "Password changed." : await response.text());
+  async function changeMyPassword(event) {
+    event.preventDefault();
+    setPasswordNotice("");
+    setIsChangingPassword(true);
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(passwordForm),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      setPasswordNotice("Password changed. Chrome can now update your saved password.");
+      window.setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordForm({ currentPassword: "", newPassword: "" });
+        setPasswordNotice("");
+      }, 1800);
+    } catch (error) {
+      setPasswordNotice(error.message || "Could not change password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
   }
 
   useEffect(() => {
@@ -1992,7 +2007,15 @@ setTimeout(() => {
           ))}
           <div className="qb-account-footer">
             <span>{currentUser?.username}</span>
-            <button type="button" onClick={changeMyPassword}>Change password</button>
+            <button
+              type="button"
+              onClick={() => {
+                setPasswordNotice("");
+                setShowPasswordModal(true);
+              }}
+            >
+              Change password
+            </button>
             <button type="button" onClick={signOut}>Sign out</button>
           </div>
         </div>
@@ -3012,6 +3035,74 @@ setTimeout(() => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {showPasswordModal && (
+          <div className="qb-modal password-modal" onClick={() => setShowPasswordModal(false)}>
+            <form
+              className="password-card"
+              aria-labelledby="change-password-title"
+              onClick={(event) => event.stopPropagation()}
+              onSubmit={changeMyPassword}
+            >
+              <button
+                className="invoice-action-close"
+                type="button"
+                aria-label="Close"
+                onClick={() => setShowPasswordModal(false)}
+              >
+                ×
+              </button>
+              <h2 id="change-password-title">Change password</h2>
+              <p>Choose a unique password with at least 12 characters.</p>
+              <input
+                className="password-username"
+                name="username"
+                value={currentUser?.username || ""}
+                autoComplete="username"
+                readOnly
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+              <label>
+                Current password
+                <input
+                  name="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={passwordForm.currentPassword}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      currentPassword: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                New password
+                <input
+                  name="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  value={passwordForm.newPassword}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      newPassword: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              {passwordNotice && <div className="password-notice">{passwordNotice}</div>}
+              <button className="qb-new-btn" type="submit" disabled={isChangingPassword}>
+                {isChangingPassword ? "Saving…" : "Save new password"}
+              </button>
+            </form>
           </div>
         )}
       </div>
