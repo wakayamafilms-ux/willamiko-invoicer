@@ -200,16 +200,17 @@ async function createEmailTransporter() {
   if (!smtpAddresses.length) throw new Error("Could not resolve Gmail's IPv4 SMTP address.");
   return nodemailer.createTransport({
     host: smtpAddresses[0],
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,
+    requireTLS: true,
     tls: { servername: "smtp.gmail.com" },
     auth: {
       user: process.env.EMAIL_USER.trim(),
       pass: process.env.EMAIL_PASS.replace(/\s/g, ""),
     },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 30000,
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
   });
 }
 
