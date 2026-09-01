@@ -244,6 +244,28 @@ if (!fs.existsSync(invoicesDir)) {
 // Serve hosted PDFs
 app.use("/invoices", express.static(invoicesDir));
 
+// Render's filesystem is temporary, so durable invoice PDFs are read from Postgres.
+app.get("/invoices/:filename", async (req, res) => {
+  try {
+    const match = /^invoice-([0-9a-f-]{36})\.pdf$/i.exec(req.params.filename);
+    if (!match) return res.status(404).send("Invoice PDF not found.");
+    const result = await pool.query(
+      "SELECT filename, content FROM hosted_invoice_pdfs WHERE token = $1",
+      [match[1]]
+    );
+    if (!result.rows[0]) return res.status(404).send("Invoice PDF not found.");
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${result.rows[0].filename.replace(/["\\\r\n]/g, "_")}"`,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+    res.send(result.rows[0].content);
+  } catch (err) {
+    console.error("Invoice PDF download error:", err);
+    res.status(500).send("Could not open invoice PDF.");
+  }
+});
+
 // TEST ROUTE
 app.get("/", (req, res) => {
   res.send("Server is running");
@@ -760,10 +782,13 @@ app.post("/host-invoice-pdf", requireAuth, upload.single("invoicePdf"), async (r
       return res.status(400).send("No PDF uploaded");
     }
 
-    const filename = `invoice-${crypto.randomUUID()}.pdf`;
-    const filepath = path.join(invoicesDir, filename);
-
-    fs.writeFileSync(filepath, req.file.buffer);
+    const token = crypto.randomUUID();
+    const filename = `invoice-${token}.pdf`;
+    await pool.query(
+      `INSERT INTO hosted_invoice_pdfs (token, user_id, filename, content)
+       VALUES ($1, $2, $3, $4)`,
+      [token, req.user.id, req.file.originalname || filename, req.file.buffer]
+    );
 
     res.send({
       url: `https://willamiko-invoicer.onrender.com/invoices/${filename}`,
