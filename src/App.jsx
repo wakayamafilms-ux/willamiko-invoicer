@@ -388,27 +388,28 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     if (!response.ok) throw new Error(await response.text());
     const result = await response.json();
     let data = result.data || {};
-    if (result.isNew) {
-      const legacy = getLegacyAccountData();
-      const hasLegacyData = Object.values(legacy).some((rows) => rows.length);
-      if (hasLegacyData) {
-        data = legacy;
-        const migration = await fetchWithTimeout(`${API_BASE_URL}/api/data`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data }),
-        });
-        if (!migration.ok) throw new Error(await migration.text());
-        [
-          "invoices",
-          "accounting_customers",
-          "accounting_expenses",
-          "accounting_bank_accounts",
-          "accounting_bank_transactions",
-          "accounting_vendor_rules",
-          "willamiko_drafts",
-        ].forEach((key) => localStorage.removeItem(key));
-      }
+    const legacy = getLegacyAccountData();
+    const hasLegacyData = Object.values(legacy).some((rows) => rows.length);
+    const serverHasData = Object.values(data).some(
+      (value) => Array.isArray(value) && value.length
+    );
+    if (hasLegacyData && (result.isNew || !serverHasData)) {
+      data = legacy;
+      const migration = await fetchWithTimeout(`${API_BASE_URL}/api/data`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data }),
+      });
+      if (!migration.ok) throw new Error(await migration.text());
+      [
+        "invoices",
+        "accounting_customers",
+        "accounting_expenses",
+        "accounting_bank_accounts",
+        "accounting_bank_transactions",
+        "accounting_vendor_rules",
+        "willamiko_drafts",
+      ].forEach((key) => localStorage.removeItem(key));
     }
     applyAccountData(data);
     setDataReady(true);
