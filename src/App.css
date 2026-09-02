@@ -1774,6 +1774,7 @@ select:focus {
   margin: 0 0 10px;
   font-size: 22px;
   color: #393a3d;
+  font-weight: 700;
 }
 
 .sent-modal-box p {
