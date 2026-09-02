@@ -656,6 +656,29 @@ app.post("/api/plaid/create-link-token", async (req, res) => {
   }
 });
 
+app.get("/api/plaid/status", async (req, res) => {
+  if (!requirePlaidConfig(res)) return;
+
+  try {
+    await plaidClient.institutionsGet({
+      count: 1,
+      offset: 0,
+      country_codes: ["US"],
+    });
+    const items = await readPlaidItems(req.user.id);
+    res.send({
+      connected: true,
+      environment: PLAID_ENV,
+      saved_items: items.length,
+    });
+  } catch (err) {
+    console.error("Plaid status error:", err.response?.data || err);
+    res.status(503).send(
+      err.response?.data?.error_message || err.message || "Could not connect to Plaid."
+    );
+  }
+});
+
 app.post("/api/plaid/exchange-public-token", async (req, res) => {
   if (!requirePlaidConfig(res)) return;
 

@@ -1443,6 +1443,20 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     }
   }
 
+  async function checkPlaidConnection() {
+    setBankNotice("Checking Plaid connection…");
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/plaid/status`, {}, 45000);
+      if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      setBankNotice(
+        `Plaid is online in ${result.environment} mode · ${result.saved_items} saved connection${result.saved_items === 1 ? "" : "s"}.`
+      );
+    } catch (error) {
+      setBankNotice(`Plaid check failed: ${error.message}`);
+    }
+  }
+
   async function connectWithPlaid() {
     try {
       setIsPlaidConnecting(true);
@@ -1485,7 +1499,11 @@ const [activeInvoice, setActiveInvoice] = useState(null);
           setShowConnectionsModal(false);
           setIsPlaidConnecting(false);
         },
-        onExit: () => {
+        onExit: (error) => {
+          if (error) {
+            const message = error.display_message || error.error_message || error.error_code;
+            setBankNotice(`Plaid Link closed: ${message || "Connection was not completed."}`);
+          }
           setIsPlaidConnecting(false);
         },
       });
@@ -3072,6 +3090,12 @@ setTimeout(() => {
                           onClick={connectWithPlaid}
                         >
                           {isPlaidConnecting ? "Opening Plaid..." : "Connect with Plaid"}
+                        </button>
+                        <button
+                          className="qb-new-btn secondary"
+                          onClick={checkPlaidConnection}
+                        >
+                          Check Plaid status
                         </button>
                         <button
                           className="qb-new-btn secondary"
