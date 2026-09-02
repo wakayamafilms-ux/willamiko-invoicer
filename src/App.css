@@ -2354,6 +2354,67 @@ select:focus {
   max-width: 100%;
 }
 
+/* Keep the transaction table inside the dashboard content margins. */
+.qb-main.transactions-view .accounting-stack,
+.qb-main.transactions-view .qb-table-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.qb-main.transactions-view .qb-table-card {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.qb-main.transactions-view .qb-table-head.banking,
+.qb-main.transactions-view .qb-table-row.banking {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-template-columns:
+    24px
+    minmax(74px, 0.72fr)
+    minmax(112px, 1.5fr)
+    minmax(82px, 1fr)
+    minmax(96px, 1fr)
+    minmax(82px, 0.78fr)
+    minmax(92px, 0.86fr)
+    54px;
+  gap: 7px;
+  padding-right: 12px;
+  padding-left: 12px;
+}
+
+.qb-main.transactions-view .qb-table-head.banking > *,
+.qb-main.transactions-view .qb-table-row.banking > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.qb-main.transactions-view .qb-table-row.banking > div {
+  overflow-wrap: anywhere;
+}
+
+.qb-main.transactions-view .qb-table-row.banking select {
+  width: 100%;
+}
+
+.qb-main.transactions-view .qb-table-row.banking > button {
+  width: 100%;
+  padding: 0 6px;
+}
+
+@media (max-width: 900px) {
+  .qb-main.transactions-view .qb-table-head.banking,
+  .qb-main.transactions-view .qb-table-row.banking {
+    width: 760px;
+    min-width: 760px;
+  }
+}
+
 .budget-page {
   display: grid;
   gap: 16px;
