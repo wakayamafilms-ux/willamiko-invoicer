@@ -2595,8 +2595,36 @@ select:focus {
   font-size: 11px;
 }
 
+.connection-method-switcher {
+  margin: 18px 22px 0;
+  padding: 4px;
+  border: 1px solid #dedee3;
+  border-radius: 11px;
+  background: #eaeaee;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.connection-method-switcher button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #68666f;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.connection-method-switcher button.active {
+  background: #fff;
+  color: #292721;
+  box-shadow: 0 1px 5px rgba(29, 29, 31, 0.12);
+}
+
 .connections-modal .bank-connect-panel.in-modal {
-  margin: 18px 22px 14px;
+  margin: 10px 22px 14px;
   padding: 22px;
   border: 1px solid #cfe1df;
   border-radius: 16px;
@@ -2687,6 +2715,10 @@ select:focus {
   box-shadow: 0 4px 16px rgba(29, 29, 31, 0.04);
 }
 
+.connections-modal .connection-manager.in-modal {
+  margin-top: 10px;
+}
+
 .connections-modal .connection-manager h2,
 .connections-modal .connections-list h2 {
   color: #292721;
@@ -2744,6 +2776,14 @@ select:focus {
   .connections-modal .connections-list {
     margin: 0 12px 12px;
     padding: 16px;
+  }
+
+  .connections-modal .connection-manager.in-modal {
+    margin-top: 12px;
+  }
+
+  .connection-method-switcher {
+    margin: 12px 12px 0;
   }
 
   .connections-modal .connection-form,

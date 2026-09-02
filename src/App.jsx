@@ -412,6 +412,7 @@ function App() {
   const [mobileCaptureStatus, setMobileCaptureStatus] = useState("");
   const [bankNotice, setBankNotice] = useState("");
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
+  const [connectionMethod, setConnectionMethod] = useState("plaid");
   const [isPlaidConnecting, setIsPlaidConnecting] = useState(false);
   const [isCategorizingTransactions, setIsCategorizingTransactions] = useState(false);
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([]);
@@ -1181,6 +1182,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
   }
 
   function editConnection(account) {
+    setConnectionMethod("manual");
     setEditingConnectionId(account.id);
     setConnectionForm({
       type: account.type || "Bank",
@@ -3079,6 +3081,27 @@ setTimeout(() => {
 
                     {bankNotice && <div className="bank-notice connections-notice">{bankNotice}</div>}
 
+                    <div className="connection-method-switcher" aria-label="Connection method">
+                      <button
+                        type="button"
+                        className={connectionMethod === "plaid" ? "active" : ""}
+                        onClick={() => {
+                          resetConnectionForm();
+                          setConnectionMethod("plaid");
+                        }}
+                      >
+                        Connect with Plaid
+                      </button>
+                      <button
+                        type="button"
+                        className={connectionMethod === "manual" ? "active" : ""}
+                        onClick={() => setConnectionMethod("manual")}
+                      >
+                        Add manually
+                      </button>
+                    </div>
+
+                    {connectionMethod === "plaid" && (
                     <div className="bank-connect-panel in-modal">
                       <div className="plaid-connect-copy">
                         <div className="plaid-mark" aria-hidden="true">P</div>
@@ -3129,7 +3152,9 @@ setTimeout(() => {
                         </div>
                       </div>
                     </div>
+                    )}
 
+                    {connectionMethod === "manual" && (
                     <div className="connection-manager in-modal">
                       <div>
                         <h2>{editingConnectionId ? "Edit connection" : "Add connection"}</h2>
@@ -3177,6 +3202,7 @@ setTimeout(() => {
                         )}
                       </div>
                     </div>
+                    )}
 
                     <div className="connections-list">
                       <h2>Current connections</h2>
