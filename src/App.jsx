@@ -2263,31 +2263,46 @@ setTimeout(() => {
             )}
           </div>
   
-          <div className="qb-stats">
-            <div>
-              <strong>{formatMoney(revenueTotal)}</strong>
-              <span>Revenue</span>
-            </div>
-
-            <div>
-              <strong>{formatMoney(openInvoiceTotal)}</strong>
-              <span>Open invoices · {openInvoices.length} sent</span>
-            </div>
-  
-            <div>
-              <strong>{formatMoney(expenseTotal)}</strong>
-              <span>Expenses</span>
-            </div>
-  
-            <div>
-              <strong>{formatMoney(revenueTotal - expenseTotal)}</strong>
-              <span>Net income</span>
-            </div>
-
-            <div>
-              <strong>{reviewCount}</strong>
-              <span>Transactions review</span>
-            </div>
+          <div className={`qb-stats ${dashboardView === "invoices" ? "invoice-summary" : ""}`}>
+            {dashboardView === "invoices" ? (
+              <>
+                <div>
+                  <strong>{formatMoney(revenueTotal)}</strong>
+                  <span>Revenue · completed invoices</span>
+                </div>
+                <div>
+                  <strong>{formatMoney(openInvoiceTotal)}</strong>
+                  <span>Open invoices · {openInvoices.length} sent</span>
+                </div>
+                <div>
+                  <strong>{formatMoney(revenueTotal + openInvoiceTotal)}</strong>
+                  <span>Total invoiced</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <strong>{formatMoney(revenueTotal)}</strong>
+                  <span>Revenue</span>
+                </div>
+                <div>
+                  <strong>{formatMoney(openInvoiceTotal)}</strong>
+                  <span>Open invoices · {openInvoices.length} sent</span>
+                </div>
+                <div>
+                  <strong>{formatMoney(expenseTotal)}</strong>
+                  <span>Expenses</span>
+                </div>
+                <div>
+                  <strong>{formatMoney(revenueTotal - expenseTotal)}</strong>
+                  <span>Net income</span>
+                </div>
+                <div>
+                  <strong>{reviewCount}</strong>
+                  <span>Transactions review</span>
+                </div>
+              </>
+            )}
           </div>
 
           {dashboardView === "overview" && (

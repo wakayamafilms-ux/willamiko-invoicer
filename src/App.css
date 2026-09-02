@@ -2651,6 +2651,24 @@ select:focus {
   grid-column: span 3;
 }
 
+.qb-stats.invoice-summary {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.qb-stats.invoice-summary > div,
+.qb-stats.invoice-summary > div:nth-child(4),
+.qb-stats.invoice-summary > div:nth-child(5) {
+  grid-column: auto;
+}
+
+.qb-stats.invoice-summary > div:first-child {
+  border-radius: 17px 17px 0 0;
+}
+
+.qb-stats.invoice-summary > div:last-child {
+  border-radius: 0 0 17px 17px;
+}
+
 .qb-stats div {
   padding: 22px;
   border-right: 1px solid #e5e7eb;
