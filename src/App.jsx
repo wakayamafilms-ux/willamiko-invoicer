@@ -3948,8 +3948,12 @@ setTimeout(() => {
 {showSentConfirmation && (
   <div className="sent-modal">
     <div className="sent-modal-box">
-      <h2>Email sent</h2>
-      <p>Your {getDocumentLabel(documentType, "lower")} email was sent successfully.</p>
+      <h2 style={{ color: "#393a3d", WebkitTextFillColor: "#393a3d", fontWeight: 700 }}>
+        Email sent
+      </h2>
+      <p style={{ color: "#393a3d", WebkitTextFillColor: "#393a3d", fontWeight: 500 }}>
+        Your {getDocumentLabel(documentType, "lower")} email was sent successfully.
+      </p>
 
       <button
         onClick={() => {

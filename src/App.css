@@ -1768,12 +1768,14 @@ select:focus {
   text-align: center;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   color: #393a3d;
+  color-scheme: light;
 }
 
 .sent-modal-box h2 {
   margin: 0 0 10px;
   font-size: 22px;
   color: #393a3d;
+  -webkit-text-fill-color: #393a3d;
   font-weight: 700;
 }
 
@@ -1781,6 +1783,8 @@ select:focus {
   margin: 0 0 24px;
   font-size: 14px;
   color: #393a3d;
+  -webkit-text-fill-color: #393a3d;
+  font-weight: 500;
 }
 
 .sent-modal-box button {
