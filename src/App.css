@@ -2653,6 +2653,7 @@ select:focus {
 
 .qb-stats.invoice-summary {
   grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 16px;
 }
 
 .qb-stats.invoice-summary > div,
@@ -2667,6 +2668,19 @@ select:focus {
 
 .qb-stats.invoice-summary > div:last-child {
   border-radius: 0 0 17px 17px;
+}
+
+.qb-stats.invoice-summary > div {
+  padding: 13px 18px;
+}
+
+.qb-stats.invoice-summary strong {
+  margin-bottom: 4px;
+  font-size: clamp(17px, 1.6vw, 22px);
+}
+
+.qb-stats.invoice-summary span {
+  font-size: 10px;
 }
 
 .qb-stats div {
