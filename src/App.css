@@ -2634,12 +2634,21 @@ select:focus {
 
 .qb-stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   background: white;
   border-radius: 10px;
   margin-bottom: 20px;
   overflow: hidden;
   border: 1px solid #d7dce0;
+}
+
+.qb-stats > div {
+  grid-column: span 2;
+}
+
+.qb-stats > div:nth-child(4),
+.qb-stats > div:nth-child(5) {
+  grid-column: span 3;
 }
 
 .qb-stats div {
@@ -4254,6 +4263,12 @@ select:focus {
   .accounting-grid,
   .bank-cards {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .qb-stats > div,
+  .qb-stats > div:nth-child(4),
+  .qb-stats > div:nth-child(5) {
+    grid-column: auto;
   }
 
   .expense-composer {
