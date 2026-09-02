@@ -214,7 +214,64 @@ async function createEmailTransporter() {
   });
 }
 
+function hasGmailApiConfig() {
+  return Boolean(
+    process.env.GMAIL_OAUTH_CLIENT_ID &&
+      process.env.GMAIL_OAUTH_CLIENT_SECRET &&
+      process.env.GMAIL_OAUTH_REFRESH_TOKEN
+  );
+}
+
+async function getGmailAccessToken() {
+  if (!hasGmailApiConfig()) {
+    throw new Error("Missing Gmail API OAuth environment variables.");
+  }
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.GMAIL_OAUTH_CLIENT_ID.trim(),
+      client_secret: process.env.GMAIL_OAUTH_CLIENT_SECRET.trim(),
+      refresh_token: process.env.GMAIL_OAUTH_REFRESH_TOKEN.trim(),
+      grant_type: "refresh_token",
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.access_token) {
+    throw new Error(
+      result.error_description || result.error || "Google could not authorize the Gmail API."
+    );
+  }
+  return result.access_token;
+}
+
+async function sendWithGmailApi(message) {
+  const accessToken = await getGmailAccessToken();
+  const composer = nodemailer.createTransport({ streamTransport: true, buffer: true });
+  const composed = await composer.sendMail(message);
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw: composed.message.toString("base64url") }),
+    }
+  );
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      result.error?.message || `Gmail API send failed (${response.status}).`
+    );
+  }
+  return result;
+}
+
 async function sendEmailMessage(message) {
+  if (hasGmailApiConfig()) return sendWithGmailApi(message);
+
   if (!process.env.RESEND_API_KEY) {
     const transporter = await createEmailTransporter();
     return transporter.sendMail(message);
@@ -352,6 +409,14 @@ app.post("/api/auth/change-password", async (req, res) => {
 
 app.get("/api/email/status", async (req, res) => {
   try {
+    if (hasGmailApiConfig()) {
+      await getGmailAccessToken();
+      return res.send({
+        connected: true,
+        provider: "Gmail HTTPS API",
+        sender: process.env.EMAIL_USER?.trim() || "Gmail",
+      });
+    }
     if (process.env.RESEND_API_KEY) {
       return res.send({
         connected: true,
