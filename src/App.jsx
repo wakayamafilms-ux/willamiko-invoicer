@@ -3924,7 +3924,24 @@ setTimeout(() => {
 
   {extraAttachments.map((file, index) => (
     <div className="gmail-attachment-card" key={index}>
-      <div className="gmail-thumb pdf-thumb" onClick={openInvoicePdf}>
+      <div className="gmail-thumb">
+        <div className="pdf-mini-page">
+          <div className="pdf-mini-title">FILE</div>
+          <div className="pdf-mini-line short"></div>
+          <div className="pdf-mini-line"></div>
+          <div className="pdf-mini-line"></div>
+        </div>
+      </div>
+      <div className="gmail-attachment-footer">
+        <div className="attachment-name" title={file.name}>{file.name}</div>
+        <button
+          type="button"
+          className="attachment-remove"
+          aria-label={`Remove ${file.name}`}
+          onClick={() => setExtraAttachments((files) => files.filter((_, i) => i !== index))}
+        >
+          ×
+        </button>
       </div>
     </div>
   ))}
