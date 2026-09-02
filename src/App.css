@@ -2492,6 +2492,16 @@ select:focus {
   color: #a23c36 !important;
 }
 
+.qb-main.overview-view .accounting-panel h2,
+.qb-main.reports-view .accounting-panel h2,
+.qb-main.budgets-view h2 {
+  color: #393a3d;
+  -webkit-text-fill-color: #393a3d;
+  font-weight: 700;
+  opacity: 1;
+  text-shadow: none;
+}
+
 @media (max-width: 760px) {
   .budget-page-intro,
   .budget-card-controls {
