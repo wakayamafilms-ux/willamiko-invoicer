@@ -1773,11 +1773,13 @@ select:focus {
 .sent-modal-box h2 {
   margin: 0 0 10px;
   font-size: 22px;
+  color: #393a3d;
 }
 
 .sent-modal-box p {
   margin: 0 0 24px;
   font-size: 14px;
+  color: #393a3d;
 }
 
 .sent-modal-box button {
