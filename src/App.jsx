@@ -661,9 +661,19 @@ const [activeInvoice, setActiveInvoice] = useState(null);
   );
   const revenueTotal = invoices.reduce(
     (sum, invoice) =>
-      invoice.documentType === "invoice"
+      invoice.documentType === "invoice" &&
+      normalizeDocumentStatus(invoice.documentType, invoice.status) === "complete"
         ? sum + parseMoneyValue(invoice.total)
         : sum,
+    0
+  );
+  const openInvoices = invoices.filter(
+    (invoice) =>
+      invoice.documentType === "invoice" &&
+      normalizeDocumentStatus(invoice.documentType, invoice.status) === "sent"
+  );
+  const openInvoiceTotal = openInvoices.reduce(
+    (sum, invoice) => sum + parseMoneyValue(invoice.total),
     0
   );
   const savedCustomerRows = customers.map((customer) => {
@@ -2257,6 +2267,11 @@ setTimeout(() => {
             <div>
               <strong>{formatMoney(revenueTotal)}</strong>
               <span>Revenue</span>
+            </div>
+
+            <div>
+              <strong>{formatMoney(openInvoiceTotal)}</strong>
+              <span>Open invoices · {openInvoices.length} sent</span>
             </div>
   
             <div>
