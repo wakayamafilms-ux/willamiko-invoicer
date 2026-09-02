@@ -61,6 +61,17 @@ const EXPENSE_CATEGORIES = [
   "Uncategorized",
 ];
 
+const DEFAULT_BUDGETS = {
+  Advertising: 300,
+  Automobile: 500,
+  "Bank Fees": 150,
+  "Contract Labor": 1200,
+  Equipment: 800,
+  Insurance: 450,
+  Meals: 350,
+  "Office Supplies": 250,
+};
+
 const CATEGORY_RULES = [
   { words: ["adobe", "figma", "dropbox", "google workspace", "notion"], category: "Software" },
   { words: ["shell", "chevron", "76", "mobil", "parking"], category: "Automobile" },
@@ -101,6 +112,7 @@ function getLegacyAccountData() {
     bankTransactions: getStoredValue("accounting_bank_transactions", []),
     vendorRules: getStoredValue("accounting_vendor_rules", []),
     drafts: getStoredValue("willamiko_drafts", []),
+    budgets: getStoredValue("accounting_budgets", DEFAULT_BUDGETS),
   };
 }
 
@@ -427,6 +439,7 @@ function App() {
   const [bankTransactions, setBankTransactions] = useState([]);
   const [vendorRules, setVendorRules] = useState([]);
   const [drafts, setDrafts] = useState([]);
+  const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
 
 const [activeInvoice, setActiveInvoice] = useState(null);
   
@@ -445,6 +458,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     setBankTransactions(Array.isArray(data.bankTransactions) ? data.bankTransactions : []);
     setVendorRules(Array.isArray(data.vendorRules) ? data.vendorRules : []);
     setDrafts(Array.isArray(data.drafts) ? data.drafts : []);
+    setBudgets(data.budgets && typeof data.budgets === "object" ? data.budgets : DEFAULT_BUDGETS);
   }
 
   async function loadAccountData() {
@@ -473,6 +487,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
         "accounting_bank_transactions",
         "accounting_vendor_rules",
         "willamiko_drafts",
+        "accounting_budgets",
       ].forEach((key) => localStorage.removeItem(key));
     }
     applyAccountData(data);
@@ -538,7 +553,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            data: { invoices, customers, expenses, bankAccounts, bankTransactions, vendorRules, drafts },
+            data: { invoices, customers, expenses, bankAccounts, bankTransactions, vendorRules, drafts, budgets },
           }),
         });
         if (!response.ok) throw new Error(await response.text());
@@ -557,6 +572,7 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     bankTransactions,
     vendorRules,
     drafts,
+    budgets,
   ]);
 
   useEffect(() => {
@@ -3216,26 +3232,65 @@ setTimeout(() => {
           )}
 
           {dashboardView === "budgets" && (
-            <div className="accounting-grid">
-              {EXPENSE_CATEGORIES.slice(0, 8).map((category, index) => {
+            <div className="budget-page">
+              <div className="budget-page-intro">
+                <div>
+                  <h2>Category budgets</h2>
+                  <p>Adjust any line below. Changes save automatically to your account.</p>
+                </div>
+                <strong>
+                  {formatMoney(Object.values(budgets).reduce((sum, amount) => sum + Number(amount || 0), 0))}
+                  <span>Total budget</span>
+                </strong>
+              </div>
+              <div className="accounting-grid budget-grid">
+              {EXPENSE_CATEGORIES.map((category) => {
                 const spent = expenses
                   .filter((expense) => expense.category === category)
                   .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-                const budget = [300, 500, 150, 1200, 800, 450, 350, 250][index];
-                const width = Math.min((spent / budget) * 100, 100);
+                const budget = Number(budgets[category] || 0);
+                const width = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+                const remaining = budget - spent;
 
                 return (
-                  <div className="budget-card" key={category}>
-                    <div>
+                  <div className={`budget-card ${remaining < 0 ? "over" : ""}`} key={category}>
+                    <div className="budget-card-head">
                       <strong>{category}</strong>
                       <span>{formatMoney(spent)} of {formatMoney(budget)}</span>
                     </div>
                     <div className="budget-meter">
                       <span style={{ width: `${width}%` }}></span>
                     </div>
+                    <div className="budget-card-controls">
+                      <label>
+                        <span>Budget amount</span>
+                        <div className="budget-input-wrap">
+                          <span>$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={budgets[category] ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setBudgets((current) => ({
+                                ...current,
+                                [category]: value === "" ? "" : Math.max(0, Number(value)),
+                              }));
+                            }}
+                          />
+                        </div>
+                      </label>
+                      <span className="budget-remaining">
+                        {remaining < 0
+                          ? `${formatMoney(Math.abs(remaining))} over`
+                          : `${formatMoney(remaining)} remaining`}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
 

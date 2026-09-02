@@ -2354,6 +2354,161 @@ select:focus {
   max-width: 100%;
 }
 
+.budget-page {
+  display: grid;
+  gap: 16px;
+}
+
+.budget-page-intro {
+  padding: 18px 20px;
+  border: 1px solid #dedee3;
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  text-align: left;
+}
+
+.budget-page-intro h2 {
+  margin: 0 0 4px;
+  color: #292721;
+  font-size: 16px;
+}
+
+.budget-page-intro p {
+  color: #73716c;
+  font-size: 11px;
+}
+
+.budget-page-intro > strong {
+  color: #292721;
+  font-size: 20px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.budget-page-intro > strong span {
+  margin-top: 3px;
+  display: block;
+  color: #85827c;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.budget-grid {
+  align-items: start;
+}
+
+.budget-card {
+  gap: 12px;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(29, 29, 31, 0.04);
+}
+
+.budget-card .budget-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budget-card-head > strong {
+  color: #292721;
+  font-size: 13px;
+}
+
+.budget-card-head > span {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.budget-card.over .budget-meter span {
+  background: #c94b43;
+}
+
+.budget-card-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budget-card-controls label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.budget-card-controls label > span {
+  color: #85827c;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.budget-input-wrap {
+  width: 126px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #d1d1d6;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+}
+
+.budget-input-wrap > span {
+  color: #73716c;
+  font-size: 12px;
+}
+
+.budget-input-wrap input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #292721;
+  font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.budget-remaining {
+  padding-bottom: 8px;
+  color: #55705c !important;
+  font-size: 10px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.budget-card.over .budget-remaining {
+  color: #a23c36 !important;
+}
+
+@media (max-width: 760px) {
+  .budget-page-intro,
+  .budget-card-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .budget-page-intro > strong,
+  .budget-remaining {
+    text-align: left;
+  }
+
+  .budget-input-wrap {
+    width: 100%;
+  }
+}
+
 /* Expense typography and table alignment overrides. */
 .receipt-capture-copy h2,
 .webcam-head h2 {
