@@ -4439,6 +4439,10 @@ select:focus {
   overflow-x: hidden;
 }
 
+.qb-main.invoices-view {
+  padding-top: 18px;
+}
+
 .accounting-stack,
 .receipt-capture-card,
 .expense-composer {

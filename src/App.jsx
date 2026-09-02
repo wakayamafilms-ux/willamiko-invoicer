@@ -2203,7 +2203,7 @@ setTimeout(() => {
           </div>
         </div>
   
-        <div className="qb-main">
+        <div className={`qb-main ${dashboardView}-view`}>
           <div className="qb-top">
             <div>
               <h1>
