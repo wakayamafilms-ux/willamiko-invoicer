@@ -4540,6 +4540,47 @@ select:focus {
   cursor: default;
 }
 
+.qb-tabs {
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+
+.qb-tabs > .table-filter-bar {
+  width: auto;
+  margin-left: auto;
+  padding: 0 5px 7px;
+  border: 0;
+  background: transparent;
+}
+
+.qb-tabs .table-filter-menu {
+  position: relative;
+  width: auto;
+}
+
+.qb-tabs .table-filter-menu summary {
+  min-height: 34px;
+  margin: 0;
+}
+
+.qb-tabs .table-filter-panel {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(560px, calc(100vw - 48px));
+  box-sizing: border-box;
+  box-shadow: 0 10px 28px rgba(29, 29, 31, 0.14);
+}
+
+.qb-tabs .table-filter-clear {
+  margin: 0;
+  border-radius: 7px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 @media (max-width: 760px) {
   .table-filter-panel {
     grid-template-columns: 1fr;

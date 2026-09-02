@@ -2437,16 +2437,18 @@ setTimeout(() => {
                 >
                   Products and Services
                 </button>
-              </div>
-
-              {invoiceTab === "invoices" && (
-                <div className="qb-table-card">
+                {invoiceTab === "invoices" && (
                   <TableFilter
                     fields={invoiceFilterFields}
                     values={invoiceFilters}
                     onChange={(key, value) => setInvoiceFilters((current) => ({ ...current, [key]: value }))}
                     onClear={() => setInvoiceFilters({ type: "", status: "", customer: "" })}
                   />
+                )}
+              </div>
+
+              {invoiceTab === "invoices" && (
+                <div className="qb-table-card">
                   <div className="qb-table-head invoices">
                     {[
                       ["type", "Type"],
