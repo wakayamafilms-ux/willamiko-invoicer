@@ -4443,6 +4443,109 @@ select:focus {
   padding-top: 18px;
 }
 
+.table-filter-bar {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e2e7;
+  background: #fafafa;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.table-filter-menu {
+  width: 100%;
+}
+
+.table-filter-menu summary {
+  width: fit-content;
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0 11px;
+  border: 1px solid #d1d1d6;
+  border-radius: 8px;
+  background: #fff;
+  color: #393a3d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.table-filter-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.table-filter-menu summary.active,
+.table-filter-menu[open] summary {
+  border-color: #087f8c;
+  color: #066b75;
+  box-shadow: 0 0 0 2px rgba(8, 127, 140, 0.1);
+}
+
+.table-filter-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #dedee3;
+  border-radius: 10px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  text-align: left;
+}
+
+.table-filter-panel label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.table-filter-panel label > span {
+  color: #66666b;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table-filter-panel select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #d1d1d6;
+  border-radius: 7px;
+  background: #fff;
+  color: #393a3d;
+  font: 500 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.table-filter-clear {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #ececef;
+  color: #393a3d;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.table-filter-clear:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 760px) {
+  .table-filter-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
 .accounting-stack,
 .receipt-capture-card,
 .expense-composer {

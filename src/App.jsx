@@ -184,6 +184,46 @@ function normalizeDocumentStatus(type, status) {
   return getDocumentStatuses(type).includes(status) ? status : "draft";
 }
 
+function uniqueFilterOptions(rows, getValue) {
+  return [...new Set(rows.map(getValue).filter(Boolean))].sort((a, b) =>
+    String(a).localeCompare(String(b), undefined, { sensitivity: "base" })
+  );
+}
+
+function TableFilter({ fields, values, onChange, onClear }) {
+  const activeCount = Object.values(values).filter(Boolean).length;
+
+  return (
+    <div className="table-filter-bar">
+      <details className="table-filter-menu">
+        <summary className={activeCount ? "active" : ""}>
+          <span>Filter{activeCount ? ` (${activeCount})` : ""}</span>
+          <span aria-hidden="true">⌄</span>
+        </summary>
+        <div className="table-filter-panel">
+          {fields.map((field) => (
+            <label key={field.key}>
+              <span>{field.label}</span>
+              <select
+                value={values[field.key] || ""}
+                onChange={(event) => onChange(field.key, event.target.value)}
+              >
+                <option value="">All {field.label.toLowerCase()}</option>
+                {field.options.map((option) => (
+                  <option value={option} key={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <button type="button" className="table-filter-clear" onClick={onClear} disabled={!activeCount}>
+            Clear filters
+          </button>
+        </div>
+      </details>
+    </div>
+  );
+}
+
 function parseCsvRows(csvText) {
   const rows = [];
   let current = "";
@@ -364,6 +404,9 @@ function App() {
   const [isCategorizingTransactions, setIsCategorizingTransactions] = useState(false);
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([]);
   const [transactionView, setTransactionView] = useState("review");
+  const [invoiceFilters, setInvoiceFilters] = useState({ type: "", status: "", customer: "" });
+  const [expenseFilters, setExpenseFilters] = useState({ category: "", account: "", source: "" });
+  const [transactionFilters, setTransactionFilters] = useState({ account: "", category: "", status: "" });
   const [editingConnectionId, setEditingConnectionId] = useState(null);
   const [connectionForm, setConnectionForm] = useState({
     type: "Bank",
@@ -766,6 +809,26 @@ const [activeInvoice, setActiveInvoice] = useState(null);
 
     return invoiceSort.direction === "asc" ? comparison : -comparison;
   });
+  const visibleInvoices = sortedInvoices.filter((invoice) =>
+    (!invoiceFilters.type || invoice.documentType === invoiceFilters.type) &&
+    (!invoiceFilters.status || normalizeDocumentStatus(invoice.documentType, invoice.status) === invoiceFilters.status) &&
+    (!invoiceFilters.customer || (invoice.clientName || "Untitled") === invoiceFilters.customer)
+  );
+  const invoiceFilterFields = [
+    { key: "type", label: "Types", options: uniqueFilterOptions(invoices, (invoice) => invoice.documentType) },
+    { key: "status", label: "Statuses", options: uniqueFilterOptions(invoices, (invoice) => normalizeDocumentStatus(invoice.documentType, invoice.status)) },
+    { key: "customer", label: "Customers", options: uniqueFilterOptions(invoices, (invoice) => invoice.clientName || "Untitled") },
+  ];
+  const visibleExpenses = expenses.filter((expense) =>
+    (!expenseFilters.category || expense.category === expenseFilters.category) &&
+    (!expenseFilters.account || expense.paymentAccount === expenseFilters.account) &&
+    (!expenseFilters.source || (expense.source || "Manual") === expenseFilters.source)
+  );
+  const expenseFilterFields = [
+    { key: "category", label: "Categories", options: uniqueFilterOptions(expenses, (expense) => expense.category) },
+    { key: "account", label: "Accounts", options: uniqueFilterOptions(expenses, (expense) => expense.paymentAccount) },
+    { key: "source", label: "Sources", options: uniqueFilterOptions(expenses, (expense) => expense.source || "Manual") },
+  ];
 
   function sortInvoicesBy(key) {
     setInvoiceSort((current) => ({
@@ -804,10 +867,21 @@ const [activeInvoice, setActiveInvoice] = useState(null);
     0
   );
   const filteredTransactions = bankTransactions.filter((transaction) => {
-    if (transactionView === "review") return transaction.status !== "Matched";
-    if (transactionView === "approved") return transaction.status === "Matched";
-    return true;
+    const matchesView = transactionView === "review"
+      ? transaction.status !== "Matched"
+      : transactionView === "approved"
+        ? transaction.status === "Matched"
+        : true;
+    return matchesView &&
+      (!transactionFilters.account || transaction.account === transactionFilters.account) &&
+      (!transactionFilters.category || transaction.category === transactionFilters.category) &&
+      (!transactionFilters.status || transaction.status === transactionFilters.status);
   });
+  const transactionFilterFields = [
+    { key: "account", label: "Accounts", options: uniqueFilterOptions(bankTransactions, (transaction) => transaction.account) },
+    { key: "category", label: "Categories", options: uniqueFilterOptions(bankTransactions, (transaction) => transaction.category) },
+    { key: "status", label: "Statuses", options: uniqueFilterOptions(bankTransactions, (transaction) => transaction.status) },
+  ];
   const selectableTransactions = filteredTransactions.filter(
     (transaction) => transaction.status !== "Matched"
   );
@@ -2367,6 +2441,12 @@ setTimeout(() => {
 
               {invoiceTab === "invoices" && (
                 <div className="qb-table-card">
+                  <TableFilter
+                    fields={invoiceFilterFields}
+                    values={invoiceFilters}
+                    onChange={(key, value) => setInvoiceFilters((current) => ({ ...current, [key]: value }))}
+                    onClear={() => setInvoiceFilters({ type: "", status: "", customer: "" })}
+                  />
                   <div className="qb-table-head invoices">
                     {[
                       ["type", "Type"],
@@ -2400,12 +2480,14 @@ setTimeout(() => {
                     <div>Actions</div>
                   </div>
 
-                  {invoices.length === 0 ? (
+                  {visibleInvoices.length === 0 ? (
                     <div className="qb-empty">
-                      No invoices yet. Click New to create one.
+                      {invoices.length === 0
+                        ? "No invoices yet. Click New to create one."
+                        : "No invoices match these filters."}
                     </div>
                   ) : (
-                    sortedInvoices.map((inv) => (
+                    visibleInvoices.map((inv) => (
                       <div
                         className="qb-table-row invoices"
                         key={inv.id}
@@ -2714,6 +2796,12 @@ setTimeout(() => {
               </div>
 
               <div className="qb-table-card">
+                <TableFilter
+                  fields={expenseFilterFields}
+                  values={expenseFilters}
+                  onChange={(key, value) => setExpenseFilters((current) => ({ ...current, [key]: value }))}
+                  onClear={() => setExpenseFilters({ category: "", account: "", source: "" })}
+                />
                 <div className="qb-table-head expenses">
                   <div>Date</div>
                   <div>Payee</div>
@@ -2723,10 +2811,12 @@ setTimeout(() => {
                   <div>Amount</div>
                   <div>Actions</div>
                 </div>
-                {expenses.length === 0 ? (
-                  <div className="qb-empty">No expenses yet.</div>
+                {visibleExpenses.length === 0 ? (
+                  <div className="qb-empty">
+                    {expenses.length === 0 ? "No expenses yet." : "No expenses match these filters."}
+                  </div>
                 ) : (
-                  expenses.map((expense) => (
+                  visibleExpenses.map((expense) => (
                     <div className="qb-table-row expenses" key={expense.id}>
                       <div>{expense.date}</div>
                       <div>{expense.payee}</div>
@@ -2849,6 +2939,18 @@ setTimeout(() => {
                     Manage connections
                   </button>
                 </div>
+                <TableFilter
+                  fields={transactionFilterFields}
+                  values={transactionFilters}
+                  onChange={(key, value) => {
+                    setTransactionFilters((current) => ({ ...current, [key]: value }));
+                    setSelectedTransactionIds([]);
+                  }}
+                  onClear={() => {
+                    setTransactionFilters({ account: "", category: "", status: "" });
+                    setSelectedTransactionIds([]);
+                  }}
+                />
                 <div className="qb-table-head banking">
                   <input
                     type="checkbox"
@@ -2868,7 +2970,7 @@ setTimeout(() => {
                   <div className="qb-empty">
                     {bankTransactions.length === 0
                       ? "Add a connection or import a CSV to classify transactions."
-                      : "No transactions in this view."}
+                      : "No transactions match this view or its filters."}
                   </div>
                 ) : (
                   filteredTransactions.map((transaction) => (
