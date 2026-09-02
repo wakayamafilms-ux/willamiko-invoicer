@@ -3057,40 +3057,48 @@ setTimeout(() => {
               </div>
 
               {showConnectionsModal && (
-                <div className="qb-modal">
+                <div className="qb-modal connections-modal">
                   <div className="connections-modal-box">
                     <div className="connections-modal-head">
                       <div>
+                        <span className="connections-kicker">Banking</span>
                         <h2>Manage connections</h2>
-                        <p>Add, edit, remove, or import bank and card activity.</p>
+                        <p>Keep your accounts and transactions securely up to date.</p>
                       </div>
                       <button
                         className="modal-close-btn"
+                        aria-label="Close connections"
                         onClick={() => {
                           resetConnectionForm();
                           setShowConnectionsModal(false);
                         }}
                       >
-                        Close
+                        ×
                       </button>
                     </div>
 
+                    {bankNotice && <div className="bank-notice connections-notice">{bankNotice}</div>}
+
                     <div className="bank-connect-panel in-modal">
-                      <div>
-                        <h2>Secure transaction connection</h2>
-                        <p>
-                          Use Plaid Link for real bank, card, and supported Venmo connections.
-                          Credentials stay inside Plaid or the financial institution flow.
-                        </p>
+                      <div className="plaid-connect-copy">
+                        <div className="plaid-mark" aria-hidden="true">P</div>
+                        <div>
+                          <span className="plaid-label">Powered by Plaid</span>
+                          <h2>Connect a financial account</h2>
+                          <p>
+                            Sign in securely through your bank. Willamiko never sees or stores your bank password.
+                          </p>
+                        </div>
                       </div>
                       <div className="bank-connect-actions">
                         <button
-                          className="qb-new-btn"
+                          className="qb-new-btn plaid-primary-action"
                           disabled={isPlaidConnecting}
                           onClick={connectWithPlaid}
                         >
-                          {isPlaidConnecting ? "Opening Plaid..." : "Connect with Plaid"}
+                          {isPlaidConnecting ? "Opening Plaid…" : "Connect account"}
                         </button>
+                        <div className="plaid-utility-actions">
                         <button
                           className="qb-new-btn secondary"
                           onClick={checkPlaidConnection}
@@ -3118,6 +3126,7 @@ setTimeout(() => {
                             onChange={(e) => importBankCsv(e.target.files[0])}
                           />
                         </label>
+                        </div>
                       </div>
                     </div>
 
